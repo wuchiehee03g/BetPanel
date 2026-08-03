@@ -91,12 +91,13 @@ function roomDbPath(roomCode) {
 function normalize(raw) {
   if (!raw) return { markets: [], bets: [] };
   
+  const config = raw.config || {};
   const state = {
-    hostName: raw.hostName || '包廂主人',
-    hostPin: raw.hostPin || '',
-    rakePercent: typeof raw.rakePercent === 'number' ? raw.rakePercent : DEFAULT_RAKE,
-    createdAt: raw.createdAt || Date.now(),
-    maxBet: typeof raw.maxBet === 'number' ? raw.maxBet : DEFAULT_MAX_BET,
+    hostName: config.hostName || raw.hostName || '包廂主人',
+    hostPin: config.pin || raw.hostPin || '',
+    rakePercent: typeof config.rake === 'number' ? (config.rake / 100) : (typeof raw.rakePercent === 'number' ? raw.rakePercent : DEFAULT_RAKE),
+    createdAt: config.createdAt || raw.createdAt || Date.now(),
+    maxBet: typeof config.maxBet === 'number' ? config.maxBet : (typeof raw.maxBet === 'number' ? raw.maxBet : DEFAULT_MAX_BET),
     markets: [],
     bets: []
   };
