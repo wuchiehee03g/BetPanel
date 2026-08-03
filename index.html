@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BetPanel · 包廂熱場投注</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    
+    <!-- Core App Engine -->
+    <script src="app.js"></script>
+</head>
+<body>
+
+    <header class="board-header">
+        <div class="title-block">
+            <div class="eyebrow">BetPanel</div>
+            <h1>包廂熱場<span class="accent">投注站</span></h1>
+        </div>
+        <div class="conn-status" id="connStatus">
+            <span class="conn-dot"></span> 連線中...
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <!-- Room Entry Section -->
+        <section class="room-entry" id="roomEntrySection" style="display: none;">
+            <div class="card">
+                <h2 class="card-title">加入包廂</h2>
+                <div class="input-group">
+                    <label>輸入 6 碼包廂代碼</label>
+                    <input type="text" id="roomCodeInput" class="room-code-input text-center" maxlength="6" placeholder="例如: ABCDEF" autocomplete="off" style="text-transform: uppercase; font-family: 'JetBrains Mono', monospace; font-size: 2rem; letter-spacing: 0.2em;">
+                </div>
+                <button class="btn btn-primary room-join-btn w-100" id="joinRoomBtn">進入包廂</button>
+                <div class="mt-3 text-center text-sm text-dim">
+                    <p>或掃描包廂 QR Code 自動加入</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Betting Area (Hidden until room joined) -->
+        <div id="mainAppSection" style="display: none;">
+            
+            <!-- Identity & Stats Section -->
+            <section class="identity-section card mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h3 class="m-0">我的身分</h3>
+                    <div class="text-sm text-dim">包廂: <span id="currentRoomDisplay" class="font-mono accent"></span> <button class="btn btn-sm btn-outline ml-2" onclick="leaveRoom()">離開</button></div>
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" id="nicknameInput" placeholder="輸入您的暱稱..." autocomplete="off">
+                </div>
+                
+                <div class="personal-stats summary-strip">
+                    <div class="stat-box">
+                        <div class="stat-label">總投注次數</div>
+                        <div class="stat-value" id="myBetCount">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">總下注額</div>
+                        <div class="stat-value" id="myTotalStaked">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">已結算損益</div>
+                        <div class="stat-value" id="mySettledPnL">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">未結算額度</div>
+                        <div class="stat-value text-dim" id="myPendingAmount">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Room Summary Strip -->
+            <section class="room-summary summary-strip mb-3">
+                <div class="stat-box">
+                    <div class="stat-label">開放中盤口</div>
+                    <div class="stat-value text-accent" id="roomOpenMarkets">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">總彩池金額</div>
+                    <div class="stat-value font-mono text-gold" id="roomTotalPool">0</div>
+                </div>
+            </section>
+
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="bet">投注</button>
+                <button class="tab-btn" data-tab="history">我的下注</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="tabContent">
+                <!-- Market List (Bet Tab) -->
+                <div id="betTab" class="tab-pane active">
+                    <div id="marketList"></div>
+                    <div id="noMarketsMsg" class="text-center text-dim my-5" style="display: none;">
+                        目前沒有開放的盤口
+                    </div>
+                </div>
+                
+                <!-- My Bets (History Tab) -->
+                <div id="historyTab" class="tab-pane" style="display: none;">
+                    <div class="card p-0 overflow-x-auto">
+                        <table class="w-100 text-left my-bets-table">
+                            <thead>
+                                <tr>
+                                    <th>時間</th>
+                                    <th>盤口</th>
+                                    <th>選項</th>
+                                    <th class="text-right">金額</th>
+                                    <th class="text-right">賠率</th>
+                                    <th class="text-center">狀態</th>
+                                    <th class="text-right">損益</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myBetsTableBody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                        <div id="noBetsMsg" class="text-center text-dim p-4" style="display: none;">
+                            尚無投注紀錄
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+        
+    </main>
+
+    <footer class="text-center text-dim text-sm mt-5 mb-4 p-3">
+        <p>BetPanel · 賠率隨彩池自動浮動 · 結算以您下注當下的鎖定賠率為準</p>
+        <p>© 2026 包廂熱場投注系統</p>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
+            authDomain: "dicebetpanel.firebaseapp.com",
+            databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "dicebetpanel",
+        };
+
+        // --- State Management ---
+        const ROOM_KEY = 'bp-room';
+        const NAME_KEY = 'bp-name';
+        const ID_KEY = 'bp-bettor-id';
+        const TAB_KEY = 'bp-tab';
+
+        let db = null;
+        let firebaseReady = false;
+        let currentRoom = null;
+        let state = null;
+        let pools = {};
+        let activeTab = localStorage.getItem(TAB_KEY) || 'bet';
+        let me = { id: null, name: '' };
+        const draftAmounts = {};
+
+        // --- Initialization ---
+        function initApp() {
+            // Generate or load Bettor ID
+            me.id = localStorage.getItem(ID_KEY);
+            if (!me.id) {
+                me.id = 'bettor_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
+                localStorage.setItem(ID_KEY, me.id);
+            }
+            
+            // Load Nickname
+            me.name = localStorage.getItem(NAME_KEY) || '';
+            document.getElementById('nicknameInput').value = me.name;
+            
+            // Setup Nickname listener
+            document.getElementById('nicknameInput').addEventListener('input', (e) => {
+                me.name = e.target.value.trim();
+                localStorage.setItem(NAME_KEY, me.name);
+            });
+
+            // Initialize Firebase
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            db = firebase.database();
+            
+            // Monitor Connection
+            db.ref('.info/connected').on('value', snap => {
+                const connDot = document.querySelector('.conn-dot');
+                const connStatus = document.getElementById('connStatus');
+                if (snap.val() === true) {
+                    firebaseReady = true;
+                    connDot.style.background = 'var(--success)';
+                    connDot.style.boxShadow = '0 0 8px var(--success)';
+                    connStatus.innerHTML = '<span class="conn-dot" style="background: var(--success); box-shadow: 0 0 8px var(--success);"></span> 已連線';
+                } else {
+                    firebaseReady = false;
+                    connDot.style.background = 'var(--danger)';
+                    connDot.style.boxShadow = '0 0 8px var(--danger)';
+                    connStatus.innerHTML = '<span class="conn-dot" style="background: var(--danger); box-shadow: 0 0 8px var(--danger);"></span> 連線中斷';
+                }
+            });
+
+            // Tab Setup
+            setupTabs();
+
+            // Check URL parameters for room joining via QR
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlRoom = urlParams.get('room');
+            if (urlRoom) {
+                joinRoom(urlRoom);
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+                // Check local storage for room
+                const savedRoom = localStorage.getItem(ROOM_KEY);
+                if (savedRoom) {
+                    joinRoom(savedRoom);
+                } else {
+                    showRoomEntry();
+                }
+            }
+            
+            // Setup Join Button
+            document.getElementById('joinRoomBtn').addEventListener('click', () => {
+                const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+                if (code.length > 0) {
+                    joinRoom(code);
+                } else {
+                    showToast('請輸入包廂代碼', 'error');
+                }
+            });
+            
+            // Room code input enter key
+            document.getElementById('roomCodeInput').addEventListener('keypress', (e) => {
+                if(e.key === 'Enter') {
+                    document.getElementById('joinRoomBtn').click();
+                }
+            });
+        }
+
+        // --- Room Management ---
+        function showRoomEntry() {
+            document.getElementById('roomEntrySection').style.display = 'block';
+            document.getElementById('mainAppSection').style.display = 'none';
+        }
+
+        function showMainApp() {
+            document.getElementById('roomEntrySection').style.display = 'none';
+            document.getElementById('mainAppSection').style.display = 'block';
+        }
+
+        function joinRoom(roomCode) {
+            roomCode = roomCode.toUpperCase();
+            
+            // Unsubscribe from old room if any
+            if (currentRoom) {
+                db.ref(`betpanel/rooms/${currentRoom}`).off('value');
+            }
+            
+            currentRoom = roomCode;
+            localStorage.setItem(ROOM_KEY, currentRoom);
+            document.getElementById('currentRoomDisplay').textContent = currentRoom;
+            
+            showToast(`正在進入包廂 ${currentRoom}...`);
+            
+            db.ref(`betpanel/rooms/${currentRoom}`).on('value', (snap) => {
+                if (!snap.exists()) {
+                    showToast(`包廂 ${currentRoom} 不存在或已關閉`, 'error');
+                    leaveRoom();
+                    return;
+                }
+                
+                let rawState = snap.val();
+                state = AppEngine.normalizeState(rawState);
+                pools = AppEngine.buildPools(state.markets, state.bets);
+                
+                if (document.getElementById('roomEntrySection').style.display !== 'none') {
+                    showMainApp();
+                    showToast('成功加入包廂!', 'success');
+                }
+                
+                renderAll();
+            }, (error) => {
+                showToast(`連線錯誤: ${error.message}`, 'error');
+            });
+        }
+
+        function leaveRoom() {
+            if (currentRoom) {
+                db.ref(`betpanel/rooms/${currentRoom}`).off('value');
+            }
+            currentRoom = null;
+            state = null;
+            localStorage.removeItem(ROOM_KEY);
+            showRoomEntry();
+        }
+
+        // --- Tabs ---
+        function setupTabs() {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetTab = btn.getAttribute('data-tab');
+                    switchTab(targetTab);
+                });
+            });
+            switchTab(activeTab);
+        }
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            localStorage.setItem(TAB_KEY, activeTab);
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+            });
+            
+            document.getElementById('betTab').style.display = tabId === 'bet' ? 'block' : 'none';
+            document.getElementById('historyTab').style.display = tabId === 'history' ? 'block' : 'none';
+            
+            if (state) renderAll();
+        }
+
+        // --- Rendering ---
+        function renderAll() {
+            if (!state) return;
+            
+            renderSummary();
+            
+            if (activeTab === 'bet') {
+                renderMarkets();
+            } else if (activeTab === 'history') {
+                renderMyBets();
+            }
+        }
+
+        function renderSummary() {
+            // Room Stats
+            let openMarkets = 0;
+            let totalPool = 0;
+            
+            if (state.markets) {
+                Object.values(state.markets).forEach(m => {
+                    if (m.status === 'open') openMarkets++;
+                });
+            }
+            
+            Object.values(pools).forEach(p => {
+                totalPool += p.total;
+            });
+            
+            document.getElementById('roomOpenMarkets').textContent = openMarkets;
+            document.getElementById('roomTotalPool').textContent = AppEngine.formatCurrency(totalPool);
+            
+            // Personal Stats
+            const report = AppEngine.generateBettorReport(state.markets, state.bets, me.id);
+            document.getElementById('myBetCount').textContent = report.betCount;
+            document.getElementById('myTotalStaked').textContent = AppEngine.formatCurrency(report.totalStaked);
+            
+            const pnlEl = document.getElementById('mySettledPnL');
+            pnlEl.textContent = (report.settledPnL > 0 ? '+' : '') + AppEngine.formatCurrency(report.settledPnL);
+            pnlEl.className = 'stat-value ' + (report.settledPnL > 0 ? 'text-success' : (report.settledPnL < 0 ? 'text-danger' : ''));
+            
+            document.getElementById('myPendingAmount').textContent = AppEngine.formatCurrency(report.pendingAmount);
+        }
+
+        function renderMarkets() {
+            const listEl = document.getElementById('marketList');
+            const noMsg = document.getElementById('noMarketsMsg');
+            
+            if (!state.markets || Object.keys(state.markets).length === 0) {
+                listEl.innerHTML = '';
+                noMsg.style.display = 'block';
+                return;
+            }
+            
+            noMsg.style.display = 'none';
+            
+            // Sort markets: Open first, then locked, then settled. Newest first within status.
+            const marketArr = Object.values(state.markets).sort((a, b) => {
+                const statusOrder = { 'open': 1, 'locked': 2, 'settled': 3, 'cancelled': 4 };
+                if (statusOrder[a.status] !== statusOrder[b.status]) {
+                    return statusOrder[a.status] - statusOrder[b.status];
+                }
+                return b.createdAt - a.createdAt;
+            });
+            
+            let html = '';
+            marketArr.forEach(m => {
+                html += renderMarketCard(m);
+            });
+            
+            listEl.innerHTML = html;
+        }
+
+        function renderMarketCard(m) {
+            const poolInfo = pools[m.id] || { total: 0, byOption: {} };
+            const isSettled = m.status === 'settled';
+            const isLocked = m.status === 'locked';
+            const isOpen = m.status === 'open';
+            
+            let statusBadge = '';
+            if (isOpen) statusBadge = '<span class="badge badge-success">開放投注</span>';
+            else if (isLocked) statusBadge = '<span class="badge badge-warning">已鎖定</span>';
+            else if (isSettled) statusBadge = '<span class="badge badge-dim">已結算</span>';
+            else if (m.status === 'cancelled') statusBadge = '<span class="badge badge-danger">已取消</span>';
+            
+            let html = `
+                <div class="card market-card mb-4 ${isSettled ? 'settled-card' : ''}" id="market-${m.id}">
+                    <div class="market-header d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h3 class="market-title m-0">${AppEngine.esc(m.title)}</h3>
+                            ${m.description ? `<p class="text-sm text-dim mt-1 mb-0">${AppEngine.esc(m.description)}</p>` : ''}
+                        </div>
+                        <div class="text-right">
+                            ${statusBadge}
+                            ${m.rakePercent > 0 ? `<div class="text-xs text-dim mt-1">莊家抽水: ${m.rakePercent}%</div>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="market-options mb-3">
+            `;
+            
+            // Render Options
+            m.options.forEach((opt, idx) => {
+                const optId = String(idx);
+                const isWinner = isSettled && String(m.resultOption) === optId;
+                const poolAmt = poolInfo.byOption[optId] || 0;
+                const poolPercent = poolInfo.total > 0 ? (poolAmt / poolInfo.total) * 100 : 0;
+                
+                // Calculate current live odds
+                const odds = AppEngine.calcOdds(poolAmt, poolInfo.total, m.priorK);
+                
+                html += `
+                    <div class="option-row ${isWinner ? 'winner' : ''} mb-2 p-2" style="border: 1px solid var(--border); border-radius: var(--radius); position: relative; overflow: hidden;">
+                        <!-- Progress bar background -->
+                        <div style="position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); width: ${poolPercent}%; opacity: 0.5; transition: width 0.3s;"></div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="font-weight-bold" style="font-size: 1.1rem; z-index: 1;">${AppEngine.esc(opt)} ${isWinner ? '👑' : ''}</div>
+                            <div class="d-flex align-items-center" style="z-index: 1;">
+                                <div class="text-xs text-dim mr-3">池: $${AppEngine.formatCurrency(poolAmt)}</div>
+                                <div class="font-mono text-gold font-weight-bold" style="font-size: 1.5rem; min-width: 60px; text-align: right;">x${odds.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            
+            // Render Betting Form if open
+            if (isOpen) {
+                const draftAmt = draftAmounts[m.id] || '';
+                
+                html += `
+                    <div class="bet-form-container p-3 mt-3" style="background: var(--bg-darker); border-radius: var(--radius);">
+                        <div class="d-flex mb-2">
+                            <select id="sel-${m.id}" class="flex-1 mr-2 p-2" style="background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius);">
+                                <option value="" disabled selected>選擇選項...</option>
+                                ${m.options.map((opt, idx) => `<option value="${idx}">${AppEngine.esc(opt)}</option>`).join('')}
+                            </select>
+                            <div class="input-group m-0" style="flex: 2;">
+                                <input type="number" id="amt-${m.id}" class="text-right font-mono" placeholder="金額..." value="${draftAmt}" oninput="updateDraft('${m.id}', this.value)">
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mb-3 quick-btns gap-2">
+                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 500)">+500</button>
+                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 1000)">+1K</button>
+                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 5000)">+5K</button>
+                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 10000)">+10K</button>
+                            <button class="btn btn-sm btn-danger flex-1" onclick="setAmount('${m.id}', 99999)">ALL</button>
+                        </div>
+                        
+                        <button class="btn btn-primary w-100 font-weight-bold" onclick="placeBet('${m.id}')">確認下注</button>
+                    </div>
+                `;
+            } else if (isSettled) {
+                // Show settled stats summary
+                const rakeAmt = poolInfo.total * (m.rakePercent / 100);
+                const winPool = poolInfo.byOption[String(m.resultOption)] || 0;
+                
+                html += `
+                    <div class="text-sm text-dim mt-2 p-2" style="background: var(--bg-darker); border-radius: var(--radius);">
+                        <div class="d-flex justify-content-between"><span>總彩池:</span> <span class="font-mono text-gold">$${AppEngine.formatCurrency(poolInfo.total)}</span></div>
+                        ${m.rakePercent > 0 ? `<div class="d-flex justify-content-between"><span>莊家抽水 (${m.rakePercent}%):</span> <span class="font-mono text-danger">-$${AppEngine.formatCurrency(rakeAmt)}</span></div>` : ''}
+                        <div class="d-flex justify-content-between mt-1 pt-1" style="border-top: 1px dashed var(--border);">
+                            <span>獲勝方總下注:</span> <span>$${AppEngine.formatCurrency(winPool)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            return html;
+        }
+
+        function renderMyBets() {
+            const tbody = document.getElementById('myBetsTableBody');
+            const noMsg = document.getElementById('noBetsMsg');
+            
+            if (!state.bets || state.bets.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.style.display = 'block';
+                return;
+            }
+            
+            // Filter my bets and sort newest first
+            const myBets = state.bets.filter(b => b.bettorId === me.id).sort((a, b) => b.timestamp - a.timestamp);
+            
+            if (myBets.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.style.display = 'block';
+                return;
+            }
+            
+            noMsg.style.display = 'none';
+            let html = '';
+            
+            myBets.forEach(b => {
+                const m = state.markets[b.marketId];
+                if (!m) return;
+                
+                const optName = m.options[b.optionId] || `Option ${b.optionId}`;
+                const mName = m.title;
+                const timeStr = new Date(b.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
+                
+                let statusStr = '進行中';
+                let statusClass = 'text-dim';
+                let pnlStr = '-';
+                
+                if (m.status === 'cancelled') {
+                    statusStr = '已退回';
+                    pnlStr = '0';
+                } else if (m.status === 'settled') {
+                    if (String(m.resultOption) === String(b.optionId)) {
+                        statusStr = '贏';
+                        statusClass = 'text-success font-weight-bold';
+                        const winAmt = (b.amount * b.oddsAtBet) - b.amount;
+                        pnlStr = '+' + AppEngine.formatCurrency(winAmt);
+                    } else {
+                        statusStr = '輸';
+                        statusClass = 'text-danger';
+                        pnlStr = '-' + AppEngine.formatCurrency(b.amount);
+                    }
+                }
+                
+                html += `
+                    <tr>
+                        <td class="text-xs text-dim">${timeStr}</td>
+                        <td class="text-sm truncate" style="max-width: 100px;">${AppEngine.esc(mName)}</td>
+                        <td class="text-sm text-accent">${AppEngine.esc(optName)}</td>
+                        <td class="text-right font-mono">$${AppEngine.formatCurrency(b.amount)}</td>
+                        <td class="text-right font-mono text-gold">x${b.oddsAtBet.toFixed(2)}</td>
+                        <td class="text-center ${statusClass}">${statusStr}</td>
+                        <td class="text-right font-mono ${pnlStr.startsWith('+') ? 'text-success' : (pnlStr.startsWith('-') && pnlStr !== '-' ? 'text-danger' : '')}">${pnlStr}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        // --- Bet Actions ---
+        function updateDraft(marketId, val) {
+            draftAmounts[marketId] = val;
+        }
+
+        function addAmount(marketId, amt) {
+            const input = document.getElementById(`amt-${marketId}`);
+            if (!input) return;
+            const current = parseInt(input.value) || 0;
+            input.value = current + amt;
+            draftAmounts[marketId] = input.value;
+        }
+
+        function setAmount(marketId, amt) {
+            const input = document.getElementById(`amt-${marketId}`);
+            if (!input) return;
+            input.value = amt;
+            draftAmounts[marketId] = input.value;
+        }
+
+        async function placeBet(marketId) {
+            if (!firebaseReady || !currentRoom) {
+                showToast('尚未連線至包廂', 'error');
+                return;
+            }
+            
+            if (!me.name) {
+                showToast('請先在上方輸入您的暱稱', 'error');
+                document.getElementById('nicknameInput').focus();
+                return;
+            }
+            
+            const selEl = document.getElementById(`sel-${marketId}`);
+            const amtEl = document.getElementById(`amt-${marketId}`);
+            
+            const optionId = selEl.value;
+            if (optionId === "") {
+                showToast('請選擇投注選項', 'warning');
+                return;
+            }
+            
+            const amount = parseInt(amtEl.value);
+            if (isNaN(amount) || amount <= 0) {
+                showToast('請輸入有效金額', 'warning');
+                return;
+            }
+            
+            const m = state.markets[marketId];
+            if (!m) return;
+            
+            if (m.status !== 'open') {
+                showToast('盤口已關閉或結算', 'error');
+                return;
+            }
+
+            // Anti-race condition: read fresh state from DB before pushing
+            try {
+                const freshSnap = await db.ref(`betpanel/rooms/${currentRoom}`).once('value');
+                const freshRaw = freshSnap.val();
+                if (!freshRaw) throw new Error("Room data missing");
+                
+                const freshState = AppEngine.normalizeState(freshRaw);
+                const freshM = freshState.markets[marketId];
+                
+                if (!freshM || freshM.status !== 'open') {
+                    showToast('下注失敗：盤口已關閉', 'error');
+                    return;
+                }
+                
+                // Validate bet using AppEngine
+                const validation = AppEngine.validateBet(freshState, marketId, me.id, amount);
+                if (!validation.valid) {
+                    showToast(validation.reason, 'error');
+                    return;
+                }
+                
+                // Re-calc odds exactly at bet time
+                const freshPools = AppEngine.buildPools(freshState.markets, freshState.bets);
+                const poolInfo = freshPools[marketId] || { total: 0, byOption: {} };
+                const optPool = poolInfo.byOption[optionId] || 0;
+                const lockedOdds = AppEngine.calcOdds(optPool, poolInfo.total, freshM.priorK);
+                
+                // Create bet record
+                const newBet = {
+                    id: 'bet_' + Date.now() + '_' + Math.random().toString(36).substring(2,7),
+                    marketId: marketId,
+                    bettorId: me.id,
+                    bettorName: me.name,
+                    optionId: String(optionId),
+                    amount: amount,
+                    oddsAtBet: lockedOdds,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // Push to Firebase
+                await db.ref(`betpanel/rooms/${currentRoom}/bets`).push(newBet);
+                
+                showToast(`投注成功! 鎖定賠率 x${lockedOdds.toFixed(2)}`, 'success');
+                
+                // Reset form
+                selEl.value = "";
+                amtEl.value = "";
+                draftAmounts[marketId] = "";
+                
+            } catch (err) {
+                console.error(err);
+                showToast('網路錯誤，下注失敗', 'error');
+            }
+        }
+
+        // --- Toast System ---
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = msg;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            }, 10);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    if(toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>

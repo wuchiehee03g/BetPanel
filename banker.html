@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BetPanel · 莫家後台</title>
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  
+  <!-- Core Engine -->
+  <script src="app.js"></script>
+</head>
+<body class="banker-mode">
+  
+  <header class="board-header banker">
+    <div class="title-block">
+      <div class="eyebrow">BetPanel</div>
+      <h1>莫家<span class="accent-b">後台</span></h1>
+    </div>
+    <a class="head-link" id="playerLink" target="_blank">玄家頁 ↗</a>
+  </header>
+
+  <div id="connStatus" class="offline" style="display:none;">未連線</div>
+
+  <!-- CREATE ROOM SECTION -->
+  <div id="createRoomSection" class="container" style="display:none;">
+    <div class="card">
+      <h2 class="section-title">建立新包廂</h2>
+      <div class="form-group">
+        <label>您的名稱 (莫家)</label>
+        <input type="text" id="hostName" placeholder="例如：阿翔">
+      </div>
+      <div class="form-group">
+        <label>抽水率 (Rake): <span id="rakeDisplay" class="accent-b">5%</span></label>
+        <input type="range" id="rakeRange" min="0" max="15" value="5" step="1">
+        <small>此為莊家從總彩池中抽取的比例。</small>
+      </div>
+      <div class="form-group">
+        <label>單筆最高投注額</label>
+        <input type="number" id="maxBet" value="10000" min="100">
+      </div>
+      <button class="btn btn-gold btn-large" id="btnCreateRoom" style="width:100%; margin-top:20px;">建立包廂</button>
+    </div>
+  </div>
+
+  <!-- ROOM ACTIVE SECTION -->
+  <div id="activeRoomSection" style="display:none;">
+    
+    <!-- ROOM INFO -->
+    <div class="container">
+      <div class="card room-info-card" style="text-align:center; padding: 20px;">
+        <h3 style="color:#aaa; font-size:14px; margin-bottom:5px;">包廂代碼</h3>
+        <div id="roomCodeDisplay" style="font-size:36px; font-weight:bold; letter-spacing:4px; color:#fff; margin-bottom:15px;">XXXXXX</div>
+        
+        <div style="background:#fff; padding:10px; display:inline-block; border-radius:8px; margin-bottom:15px;">
+          <img id="qrCodeImg" src="" alt="QR Code" width="150" height="150">
+        </div>
+        
+        <div style="font-size:12px; color:#aaa; margin-bottom:15px;">
+          <p>莊家: <span id="infoHostName" class="accent-b"></span> | 抽水率: <span id="infoRake" class="accent-b"></span>%</p>
+        </div>
+        
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button class="btn" id="btnCopyLink">複製玩家連結</button>
+          <button class="btn btn-danger" id="btnCloseRoom" style="padding: 10px 15px;">關閉包廂</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS STRIP -->
+    <div class="stats-strip container" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+      <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #00f0ff;">
+        <div style="font-size:11px; color:#aaa;">總彩池</div>
+        <div id="statTotalPool" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
+      </div>
+      <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #ffcc00;">
+        <div style="font-size:11px; color:#aaa;">莫家淨利(已結算)</div>
+        <div id="statHostNet" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
+      </div>
+      <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #ff3366;">
+        <div style="font-size:11px; color:#aaa;">最差風險(未結算)</div>
+        <div id="statWorstRisk" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
+      </div>
+    </div>
+    
+    <!-- OPEN MARKETS WARNING -->
+    <div class="container" id="openMarketsWarning" style="display:none;">
+      <div style="background:rgba(255, 51, 102, 0.2); border:1px solid #ff3366; padding:10px 15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <span style="color:#ff3366; font-size:14px;">有未封盤的盤口！</span>
+        <button class="btn btn-danger" id="btnLockAll" style="padding:5px 10px; font-size:12px;">全部封盤</button>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="container">
+      <div class="tabs" style="display:flex; border-bottom:1px solid #333; margin-bottom:20px;">
+        <div class="tab active" data-target="tab-markets" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#00f0ff; border-bottom:2px solid #00f0ff;">盤口管理</div>
+        <div class="tab" data-target="tab-reports" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">報表</div>
+        <div class="tab" data-target="tab-settings" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">設定</div>
+      </div>
+    </div>
+
+    <!-- TAB CONTENTS -->
+    <div class="container tab-content" id="tab-markets">
+      
+      <!-- Create Market Panel -->
+      <div class="card" style="margin-bottom:20px;">
+        <h3 class="section-title">快速開盤</h3>
+        <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
+          <button class="btn btn-gold template-btn" data-type="1v1" style="flex:1; min-width:80px;">1v1 對決</button>
+          <button class="btn template-btn" data-type="multi" style="flex:1; min-width:80px;">多選一</button>
+          <button class="btn template-btn" data-type="custom" style="flex:1; min-width:80px;">自訂盤口</button>
+        </div>
+        
+        <div id="createMarketForm">
+          <div class="form-group">
+            <label>盤口標題</label>
+            <input type="text" id="marketTitle" placeholder="例如：阿翔 vs 小明">
+          </div>
+          
+          <div id="optionsContainer">
+            <!-- 1v1 default options -->
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+              <input type="text" class="opt-name" placeholder="選項A" style="flex:1;">
+              <input type="text" class="opt-name" placeholder="選項B" style="flex:1;">
+            </div>
+          </div>
+          <button class="btn" id="btnAddOption" style="display:none; width:100%; margin-bottom:15px; font-size:12px; padding:8px;">+ 新增選項</button>
+          
+          <details style="margin-bottom:15px; font-size:13px; color:#aaa;">
+            <summary style="cursor:pointer; padding:5px 0;">進階設定 (可留空)</summary>
+            <div style="padding:10px; background:#1a1a24; border-radius:4px; margin-top:5px;">
+              <div class="form-group">
+                <label>描述</label>
+                <input type="text" id="marketDesc" placeholder="說明文字...">
+              </div>
+              <div class="form-group">
+                <label>獨立抽水率 (%)</label>
+                <input type="number" id="marketRake" placeholder="預設跟隨包廂">
+              </div>
+              <div class="form-group">
+                <label>流動性參數 (PriorK)</label>
+                <input type="number" id="marketPriorK" placeholder="預設 5000">
+                <small>數值越大，賠率變動越慢</small>
+              </div>
+            </div>
+          </details>
+
+          <button class="btn btn-gold" id="btnCreateMarket" style="width:100%;">開盤</button>
+        </div>
+      </div>
+
+      <!-- Market List -->
+      <h3 class="section-title">目前盤口</h3>
+      <div id="marketListContainer">
+        <div style="text-align:center; color:#888; padding:20px;">載入中...</div>
+      </div>
+      
+    </div>
+
+    <div class="container tab-content" id="tab-reports" style="display:none;">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 class="section-title">包廂結算帳單</h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:15px;">一鍵產生目前所有已結算盤口的總帳單。</p>
+        <button class="btn btn-gold" id="btnGenerateBill" style="width:100%; margin-bottom:15px;">產生結算帳單</button>
+        <textarea id="billOutput" style="width:100%; height:150px; background:#111; color:#00f0ff; border:1px solid #333; border-radius:4px; padding:10px; font-family:monospace; display:none;" readonly></textarea>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">玩家統計</h3>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:13px;" id="playerReportTable">
+            <thead>
+              <tr style="border-bottom:1px solid #333; color:#aaa;">
+                <th style="padding:8px; text-align:left;">玩家</th>
+                <th style="padding:8px; text-align:right;">注數</th>
+                <th style="padding:8px; text-align:right;">總投注</th>
+                <th style="padding:8px; text-align:right;">損益</th>
+              </tr>
+            </thead>
+            <tbody id="playerReportBody">
+              <!-- populated via js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="container tab-content" id="tab-settings" style="display:none;">
+      <div class="card">
+        <h3 class="section-title">危險操作</h3>
+        <p style="font-size:12px; color:#aaa; margin-bottom:15px;">清空所有資料且無法復原。</p>
+        <button class="btn btn-danger" id="btnResetRoom" style="width:100%;">重置/清空包廂</button>
+      </div>
+    </div>
+    
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
+      authDomain: "dicebetpanel.firebaseapp.com",
+      databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dicebetpanel",
+    };
+
+    const ROOM_KEY = 'bp-host-room';
+    const PIN_KEY = 'bp-host-pin';
+    
+    let db = null;
+    let roomCode = null;
+    let roomPin = null;
+    let roomRef = null;
+    let state = null;
+    let pools = {};
+
+    function showToast(msg, isErr=false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.background = isErr ? '#ff3366' : '#222';
+      t.style.color = isErr ? '#fff' : '#00f0ff';
+      t.className = 'show';
+      setTimeout(() => t.className = '', 3000);
+    }
+
+    function generateCode(length=6) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let r = '';
+      for(let i=0; i<length; i++) r += chars.charAt(Math.floor(Math.random() * chars.length));
+      return r;
+    }
+
+    async function initFirebase() {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      checkSavedRoom();
+    }
+
+    function checkSavedRoom() {
+      roomCode = localStorage.getItem(ROOM_KEY);
+      roomPin = localStorage.getItem(PIN_KEY);
+      
+      if(roomCode && roomPin) {
+        db.ref('betpanel/rooms/' + roomCode + '/config/pin').once('value').then(snap => {
+          if(snap.val() === roomPin) {
+            enterRoom(roomCode);
+          } else {
+            localStorage.removeItem(ROOM_KEY);
+            localStorage.removeItem(PIN_KEY);
+            showCreateScreen();
+          }
+        }).catch(err => {
+          console.error(err);
+          showCreateScreen();
+        });
+      } else {
+        showCreateScreen();
+      }
+    }
+
+    function showCreateScreen() {
+      document.getElementById('createRoomSection').style.display = 'block';
+      document.getElementById('activeRoomSection').style.display = 'none';
+    }
+
+    function enterRoom(code) {
+      roomCode = code;
+      document.getElementById('createRoomSection').style.display = 'none';
+      document.getElementById('activeRoomSection').style.display = 'block';
+      document.getElementById('roomCodeDisplay').textContent = code;
+      
+      const pUrl = window.location.href.replace('banker.html', 'index.html') + '?room=' + code;
+      document.getElementById('qrCodeImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(pUrl);
+      document.getElementById('playerLink').href = pUrl;
+      
+      roomRef = db.ref('betpanel/rooms/' + code);
+      setupListeners();
+    }
+
+    document.getElementById('rakeRange').addEventListener('input', e => {
+      document.getElementById('rakeDisplay').textContent = e.target.value + '%';
+    });
+
+    document.getElementById('btnCreateRoom').addEventListener('click', async () => {
+      const hName = document.getElementById('hostName').value.trim();
+      const rake = parseInt(document.getElementById('rakeRange').value);
+      const mBet = parseInt(document.getElementById('maxBet').value);
+      
+      if(!hName) return showToast('請輸入您的名稱', true);
+      
+      const code = generateCode(6);
+      const pin = generateCode(4);
+      
+      const config = {
+        hostName: hName,
+        rake: rake,
+        maxBet: mBet,
+        pin: pin,
+        createdAt: Date.now()
+      };
+      
+      try {
+        await db.ref('betpanel/rooms/' + code + '/config').set(config);
+        localStorage.setItem(ROOM_KEY, code);
+        localStorage.setItem(PIN_KEY, pin);
+        showToast('包廂建立成功！');
+        enterRoom(code);
+      } catch(e) {
+        showToast('建立失敗', true);
+      }
+    });
+
+    document.getElementById('btnCopyLink').addEventListener('click', () => {
+      const pUrl = window.location.href.replace('banker.html', 'index.html') + '?room=' + roomCode;
+      navigator.clipboard.writeText(pUrl).then(() => showToast('連結已複製'));
+    });
+
+    document.getElementById('btnCloseRoom').addEventListener('click', () => {
+      if(confirm('確定要關閉此包廂？(只會登出後台，不刪除資料)')) {
+        localStorage.removeItem(ROOM_KEY);
+        localStorage.removeItem(PIN_KEY);
+        location.reload();
+      }
+    });
+
+    function setupListeners() {
+      document.getElementById('connStatus').style.display = 'block';
+      db.ref('.info/connected').on('value', snap => {
+        const el = document.getElementById('connStatus');
+        if(snap.val() === true) {
+          el.className = 'online';
+          el.textContent = '已連線';
+          setTimeout(() => el.style.display = 'none', 2000);
+        } else {
+          el.style.display = 'block';
+          el.className = 'offline';
+          el.textContent = '連線中斷...';
+        }
+      });
+
+      roomRef.on('value', snap => {
+        state = snap.val() || { config: {}, markets: {}, bets: {} };
+        if(!state.markets) state.markets = {};
+        if(!state.bets) state.bets = {};
+        
+        document.getElementById('infoHostName').textContent = escapeHtml(state.config.hostName || '未知');
+        document.getElementById('infoRake').textContent = state.config.rake || 0;
+        
+        pools = buildPools(state.bets);
+        
+        renderMarkets();
+        updateStats();
+        checkOpenMarkets();
+      });
+    }
+
+    function checkOpenMarkets() {
+      let openCount = 0;
+      for(let k in state.markets) {
+        if(!state.markets[k].locked) openCount++;
+      }
+      document.getElementById('openMarketsWarning').style.display = openCount > 0 ? 'block' : 'none';
+    }
+
+    document.getElementById('btnLockAll').addEventListener('click', () => {
+      const updates = {};
+      for(let k in state.markets) {
+        if(!state.markets[k].locked) updates['markets/'+k+'/locked'] = true;
+      }
+      if(Object.keys(updates).length > 0) {
+        roomRef.update(updates).then(() => showToast('已全部封盤'));
+      }
+    });
+
+    // TABS
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(x => {
+          x.classList.remove('active');
+          x.style.color = '#888';
+          x.style.borderBottom = 'none';
+        });
+        t.classList.add('active');
+        t.style.color = '#00f0ff';
+        t.style.borderBottom = '2px solid #00f0ff';
+        
+        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById(t.dataset.target).style.display = 'block';
+        
+        if(t.dataset.target === 'tab-reports') renderReports();
+      });
+    });
+
+    // Create Market UI
+    let currentTemplate = '1v1';
+    document.querySelectorAll('.template-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.template-btn').forEach(b => {
+          b.classList.remove('btn-gold');
+        });
+        btn.classList.add('btn-gold');
+        currentTemplate = btn.dataset.type;
+        renderCreateForm();
+      });
+    });
+
+    function renderCreateForm() {
+      const c = document.getElementById('optionsContainer');
+      const addBtn = document.getElementById('btnAddOption');
+      c.innerHTML = '';
+      
+      if(currentTemplate === '1v1') {
+        addBtn.style.display = 'none';
+        c.innerHTML = `
+          <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <input type="text" class="opt-name" placeholder="選手A" style="flex:1;">
+            <input type="text" class="opt-name" placeholder="選手B" style="flex:1;">
+          </div>
+        `;
+      } else if(currentTemplate === 'multi') {
+        addBtn.style.display = 'block';
+        addBtn.onclick = () => addOptionInput(false);
+        c.innerHTML = '';
+        addOptionInput(false); addOptionInput(false); addOptionInput(false);
+      } else if(currentTemplate === 'custom') {
+        addBtn.style.display = 'block';
+        addBtn.onclick = () => addOptionInput(true);
+        c.innerHTML = '';
+        addOptionInput(true); addOptionInput(true);
+      }
+    }
+
+    function addOptionInput(withOdds=false) {
+      const c = document.getElementById('optionsContainer');
+      const div = document.createElement('div');
+      div.style.display = 'flex';
+      div.style.gap = '10px';
+      div.style.marginBottom = '10px';
+      
+      let html = `<input type="text" class="opt-name" placeholder="選項名稱" style="flex:2;">`;
+      if(withOdds) {
+        html += `<input type="number" class="opt-odds" placeholder="賠率 (預設均分)" step="0.01" style="flex:1;">`;
+      }
+      html += `<button class="btn btn-danger btn-remove-opt" style="padding:0 10px;">X</button>`;
+      
+      div.innerHTML = html;
+      div.querySelector('.btn-remove-opt').onclick = () => div.remove();
+      c.appendChild(div);
+    }
+
+    document.getElementById('btnCreateMarket').addEventListener('click', () => {
+      const title = document.getElementById('marketTitle').value.trim();
+      const desc = document.getElementById('marketDesc').value.trim();
+      const customRake = document.getElementById('marketRake').value;
+      const priorK = document.getElementById('marketPriorK').value || 5000;
+      
+      if(!title) return showToast('請輸入標題', true);
+      
+      const names = Array.from(document.querySelectorAll('.opt-name')).map(el => el.value.trim()).filter(x => x);
+      if(names.length < 2) return showToast('至少需要兩個選項', true);
+      
+      let opts = [];
+      if(currentTemplate === 'custom') {
+        const oddsInputs = Array.from(document.querySelectorAll('.opt-odds'));
+        opts = names.map((n, i) => {
+          let o = parseFloat(oddsInputs[i].value);
+          if(isNaN(o) || o <= 1) o = null;
+          return { id: 'opt_'+i, label: n, fixedOdds: o };
+        });
+      } else {
+        opts = names.map((n, i) => ({ id: 'opt_'+i, label: n }));
+      }
+      
+      const marketId = 'm_' + Date.now();
+      const rake = customRake !== '' ? parseInt(customRake) : (state.config.rake || 5);
+      
+      const market = {
+        title: title,
+        desc: desc,
+        category: currentTemplate,
+        options: opts,
+        rake: rake,
+        priorK: parseInt(priorK),
+        locked: false,
+        settled: false,
+        createdAt: Date.now()
+      };
+      
+      roomRef.child('markets').child(marketId).set(market).then(() => {
+        showToast('開盤成功');
+        document.getElementById('marketTitle').value = '';
+        renderCreateForm();
+      });
+    });
+
+    function renderMarkets() {
+      const container = document.getElementById('marketListContainer');
+      container.innerHTML = '';
+      
+      const ms = state.markets || {};
+      const mkts = Object.keys(ms).map(k => ({id:k, ...ms[k]})).sort((a,b) => b.createdAt - a.createdAt);
+      
+      if(mkts.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">尚無盤口</div>';
+        return;
+      }
+      
+      mkts.forEach(m => {
+        const p = pools[m.id] || {};
+        const totalP = marketTotal(m.id, pools) || 0;
+        
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.position = 'relative';
+        
+        let statusBadge = m.settled ? '<span style="background:#4CAF50; color:#fff; padding:2px 5px; border-radius:3px; font-size:11px;">已結算</span>' :
+                          (m.locked ? '<span style="background:#f44336; color:#fff; padding:2px 5px; border-radius:3px; font-size:11px;">已封盤</span>' : 
+                                      '<span style="background:#00f0ff; color:#000; padding:2px 5px; border-radius:3px; font-size:11px;">開放中</span>');
+                                      
+        let html = `
+          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
+            <div>
+              <h4 style="margin:0; font-size:16px;">${escapeHtml(m.title)}</h4>
+              ${m.desc ? `<div style="font-size:12px; color:#aaa; margin-top:2px;">${escapeHtml(m.desc)}</div>` : ''}
+            </div>
+            <div>${statusBadge}</div>
+          </div>
+          <div style="font-size:12px; color:#aaa; margin-bottom:10px;">
+            總池: $${totalP.toFixed(0)} | 抽水: ${m.rake}% | PriorK: ${m.priorK || 5000}
+          </div>
+        `;
+        
+        const info = m.settled ? settleInfo(m, state.bets) : null;
+        
+        html += `<div style="background:#1a1a24; border-radius:4px; padding:10px; margin-bottom:15px;">`;
+        m.options.forEach(opt => {
+          let cOdds = m.settled ? '-' : autoOdds(m, opt.id, pools).toFixed(2);
+          if(opt.fixedOdds) cOdds = opt.fixedOdds;
+          
+          let pAmt = p[opt.id] || 0;
+          let net = bankerNetIfWins(m.id, opt.id, m, state.bets);
+          let netColor = net >= 0 ? '#4CAF50' : '#f44336';
+          
+          let isWinner = m.settled && m.winnerId === opt.id;
+          let winStyle = isWinner ? 'border: 1px solid #ffcc00; background: rgba(255,204,0,0.1);' : '';
+          
+          html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #333; ${winStyle}">
+              <div style="flex:2; ${isWinner ? 'color:#ffcc00; font-weight:bold;' : ''}">
+                ${isWinner ? '👑 ' : ''}${escapeHtml(opt.label)}
+              </div>
+              <div style="flex:1; text-align:center; font-family:monospace; color:#00f0ff;">x${cOdds}</div>
+              <div style="flex:1; text-align:right; font-size:12px;">$${pAmt}</div>
+              <div style="flex:1; text-align:right; font-size:12px; color:${netColor};">$${net.toFixed(0)}</div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+        
+        html += `<div style="display:flex; gap:10px; flex-wrap:wrap;">`;
+        
+        if(!m.settled) {
+          if(!m.locked) {
+            html += `<button class="btn btn-danger m-lock-btn" data-id="${m.id}" style="flex:1;">封盤</button>`;
+          } else {
+            html += `<button class="btn m-unlock-btn" data-id="${m.id}" style="flex:1; background:#555;">解鎖</button>`;
+            html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1;">結算</button>`;
+          }
+        } else {
+          html += `<button class="btn m-unsettle-btn" data-id="${m.id}" style="flex:1; background:#555;">撤銷結算</button>`;
+        }
+        html += `<button class="btn m-del-btn" data-id="${m.id}" style="background:transparent; color:#ff3366; border:1px solid #ff3366;">刪除</button>`;
+        
+        html += `</div>`;
+        
+        // Settle dropdown (hidden by default)
+        if(m.locked && !m.settled) {
+          html += `
+            <div id="settle-panel-${m.id}" style="display:none; margin-top:15px; padding:10px; background:#111; border:1px solid #ffcc00; border-radius:4px;">
+              <h5 style="margin:0 0 10px 0; color:#ffcc00;">選擇獲勝選項：</h5>
+              <select id="settle-sel-${m.id}" style="width:100%; margin-bottom:10px;">
+                ${m.options.map(o => `<option value="${o.id}">${escapeHtml(o.label)}</option>`).join('')}
+              </select>
+              <button class="btn btn-gold m-confirm-settle-btn" data-id="${m.id}" style="width:100%;">確認結算</button>
+            </div>
+          `;
+        }
+        
+        card.innerHTML = html;
+        container.appendChild(card);
+      });
+      
+      // Bind events
+      document.querySelectorAll('.m-lock-btn').forEach(btn => btn.onclick = e => {
+        roomRef.child('markets').child(e.target.dataset.id).child('locked').set(true);
+      });
+      document.querySelectorAll('.m-unlock-btn').forEach(btn => btn.onclick = e => {
+        roomRef.child('markets').child(e.target.dataset.id).child('locked').set(false);
+      });
+      document.querySelectorAll('.m-settle-btn').forEach(btn => btn.onclick = e => {
+        const p = document.getElementById('settle-panel-' + e.target.dataset.id);
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+      });
+      document.querySelectorAll('.m-confirm-settle-btn').forEach(btn => btn.onclick = e => {
+        const mid = e.target.dataset.id;
+        const wid = document.getElementById('settle-sel-' + mid).value;
+        if(confirm('確定要結算此盤口？')) {
+          roomRef.child('markets').child(mid).update({
+            settled: true,
+            winnerId: wid,
+            settledAt: Date.now()
+          }).then(() => showToast('結算成功'));
+        }
+      });
+      document.querySelectorAll('.m-unsettle-btn').forEach(btn => btn.onclick = e => {
+        if(confirm('確定要撤銷結算？這會改變帳單。')) {
+          roomRef.child('markets').child(e.target.dataset.id).update({
+            settled: false,
+            winnerId: null,
+            settledAt: null
+          }).then(() => showToast('撤銷成功'));
+        }
+      });
+      document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = e => {
+        if(confirm('注意：刪除盤口將同時刪除其所有下注紀錄且無法復原，確定？')) {
+          const mid = e.target.dataset.id;
+          const updates = {};
+          updates['markets/' + mid] = null;
+          // delete bets
+          for(let bid in state.bets) {
+            if(state.bets[bid].marketId === mid) updates['bets/' + bid] = null;
+          }
+          roomRef.update(updates).then(() => showToast('已刪除'));
+        }
+      });
+    }
+
+    function updateStats() {
+      let totalPool = 0;
+      let hostNet = 0;
+      let worstRisk = 0;
+      
+      const ms = state.markets || {};
+      for(let mid in ms) {
+        const m = ms[mid];
+        totalPool += marketTotal(mid, pools);
+        
+        if(m.settled) {
+          const info = settleInfo(m, state.bets);
+          hostNet += info.bankerNet;
+        } else {
+          // calculate worst case risk
+          let wc = 0; // max loss for banker is the lowest net
+          m.options.forEach(opt => {
+            const net = bankerNetIfWins(mid, opt.id, m, state.bets);
+            if(net < wc) wc = net;
+          });
+          worstRisk += wc;
+        }
+      }
+      
+      document.getElementById('statTotalPool').textContent = '$' + totalPool.toFixed(0);
+      document.getElementById('statHostNet').textContent = '$' + hostNet.toFixed(0);
+      document.getElementById('statHostNet').style.color = hostNet >= 0 ? '#ffcc00' : '#ff3366';
+      
+      document.getElementById('statWorstRisk').textContent = '$' + worstRisk.toFixed(0);
+    }
+
+    function renderReports() {
+      // Player Report
+      const pStats = {};
+      const bets = state.bets || {};
+      const ms = state.markets || {};
+      
+      for(let bid in bets) {
+        const b = bets[bid];
+        const m = ms[b.marketId];
+        if(!m) continue;
+        
+        if(!pStats[b.bettor]) pStats[b.bettor] = { name: b.bettor, count: 0, staked: 0, pnl: 0 };
+        const ps = pStats[b.bettor];
+        
+        ps.count++;
+        ps.staked += b.amount;
+        
+        if(m.settled) {
+          if(m.winnerId === b.optionId) {
+            ps.pnl += (b.amount * b.oddsAtBet) - b.amount;
+          } else {
+            ps.pnl -= b.amount;
+          }
+        }
+      }
+      
+      const arr = Object.values(pStats).sort((a,b) => b.staked - a.staked);
+      const tbody = document.getElementById('playerReportBody');
+      tbody.innerHTML = '';
+      
+      arr.forEach(p => {
+        const color = p.pnl > 0 ? '#4CAF50' : (p.pnl < 0 ? '#f44336' : '#fff');
+        const sign = p.pnl > 0 ? '+' : '';
+        tbody.innerHTML += `
+          <tr style="border-bottom:1px solid #333;">
+            <td style="padding:8px;">${escapeHtml(p.name)}</td>
+            <td style="padding:8px; text-align:right;">${p.count}</td>
+            <td style="padding:8px; text-align:right;">$${p.staked.toFixed(0)}</td>
+            <td style="padding:8px; text-align:right; color:${color}; font-weight:bold;">${sign}$${p.pnl.toFixed(0)}</td>
+          </tr>
+        `;
+      });
+    }
+
+    document.getElementById('btnGenerateBill').addEventListener('click', () => {
+      const ms = state.markets || {};
+      const bets = state.bets || {};
+      const settledMs = Object.keys(ms).filter(k => ms[k].settled).map(k => ms[k]);
+      
+      if(settledMs.length === 0) {
+        return showToast('目前沒有已結算的盤口', true);
+      }
+      
+      let hostRakeTotal = 0;
+      let hostNetTotal = 0;
+      const playerPnls = {};
+      
+      settledMs.forEach(m => {
+        const info = settleInfo(m, bets);
+        hostRakeTotal += info.rakeAmount;
+        hostNetTotal += info.bankerNet;
+        
+        for(let bid in bets) {
+          const b = bets[bid];
+          if(b.marketId === m.id) {
+            if(!playerPnls[b.bettor]) playerPnls[b.bettor] = 0;
+            if(b.optionId === m.winnerId) {
+              playerPnls[b.bettor] += (b.amount * b.oddsAtBet) - b.amount;
+            } else {
+              playerPnls[b.bettor] -= b.amount;
+            }
+          }
+        }
+      });
+      
+      let bill = `=== 包廂結算帳單 ===\n`;
+      bill += `時間：${new Date().toLocaleString('zh-TW')}\n`;
+      bill += `已結算盤口數：${settledMs.length}\n`;
+      bill += `---------------------\n`;
+      bill += `【莫家 (莊家)】\n`;
+      bill += `抽水收益：$${hostRakeTotal.toFixed(0)}\n`;
+      bill += `總淨損益：$${hostNetTotal.toFixed(0)} (含水錢)\n`;
+      bill += `---------------------\n`;
+      bill += `【玄家 (玩家)】\n`;
+      
+      const pArr = Object.keys(playerPnls).map(k => ({name:k, pnl:playerPnls[k]})).sort((a,b) => b.pnl - a.pnl);
+      pArr.forEach(p => {
+        const sign = p.pnl > 0 ? '+' : '';
+        bill += `${p.name}：\t${sign}$${p.pnl.toFixed(0)}\n`;
+      });
+      
+      bill += `=====================\n`;
+      
+      const out = document.getElementById('billOutput');
+      out.value = bill;
+      out.style.display = 'block';
+    });
+
+    document.getElementById('btnResetRoom').addEventListener('click', () => {
+      const p = prompt('警告：這將清空所有盤口與下注資料！\n請輸入大寫 "RESET" 以確認：');
+      if(p === 'RESET') {
+        roomRef.update({
+          markets: null,
+          bets: null
+        }).then(() => showToast('包廂已重置'));
+      }
+    });
+
+    // On Load
+    window.onload = initFirebase;
+  </script>
+</body>
+</html>
