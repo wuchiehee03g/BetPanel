@@ -3,214 +3,331 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BetPanel · 莊家後台</title>
+  <title>BetPanel · 幹部控制台 VIP</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="style.css">
   
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
   
   <!-- Core Engine -->
   <script src="app.js"></script>
 </head>
 <body class="banker-mode">
-  
-  <header class="board-header banker">
-    <div class="title-block">
-      <div class="eyebrow">BetPanel</div>
-      <h1>莊家<span class="accent-b">後台</span></h1>
-    </div>
-    <a class="head-link" id="playerLink" target="_blank">玩家頁 ↗</a>
-  </header>
 
-  <div id="connStatus" class="offline" style="display:none;">未連線</div>
-
-  <!-- CREATE ROOM SECTION -->
-  <div id="createRoomSection" class="container" style="display:none;">
-    <div class="card">
-      <h2 class="section-title">建立新包廂</h2>
-      <div class="form-group">
-        <label>您的名稱 (莊家)</label>
-        <input type="text" id="hostName" placeholder="例如：阿翔">
-      </div>
-      <div class="form-group">
-        <label>抽水率 (Rake): <span id="rakeDisplay" class="accent-b">5%</span></label>
-        <input type="range" id="rakeRange" min="0" max="15" value="5" step="1">
-        <small>此為莊家從總彩池中抽取的比例。</small>
-      </div>
-      <div class="form-group">
-        <label>單筆最高投注額</label>
-        <input type="number" id="maxBet" value="10000" min="100">
-      </div>
-      <button class="btn btn-gold btn-large" id="btnCreateRoom" style="width:100%; margin-top:20px;">建立包廂</button>
-    </div>
-  </div>
-
-  <!-- ROOM ACTIVE SECTION -->
-  <div id="activeRoomSection" style="display:none;">
+  <div class="wrap">
     
-    <!-- ROOM INFO -->
-    <div class="container">
-      <div class="card room-info-card" style="text-align:center; padding: 20px;">
-        <h3 style="color:#aaa; font-size:14px; margin-bottom:5px;">包廂代碼</h3>
-        <div id="roomCodeDisplay" style="font-size:36px; font-weight:bold; letter-spacing:4px; color:#fff; margin-bottom:15px;">XXXXXX</div>
-        
-        <div style="background:#fff; padding:10px; display:inline-block; border-radius:8px; margin-bottom:15px;">
-          <img id="qrCodeImg" src="" alt="QR Code" width="150" height="150">
+    <!-- Header -->
+    <header class="board-header banker">
+      <div class="title-block">
+        <div class="eyebrow">
+          <span class="eyebrow-badge">商業幹部版</span> BETPANEL VIP
         </div>
-        
-        <div style="font-size:12px; color:#aaa; margin-bottom:15px;">
-          <p>莊家: <span id="infoHostName" class="accent-b"></span> | 抽水率: <span id="infoRake" class="accent-b"></span>%</p>
-        </div>
-        
-        <div style="display:flex; gap:10px; justify-content:center;">
-          <button class="btn" id="btnCopyLink">複製玩家連結</button>
-          <button class="btn btn-danger" id="btnCloseRoom" style="padding: 10px 15px;">關閉包廂</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- STATS STRIP -->
-    <div class="stats-strip container" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
-      <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #00f0ff;">
-        <div style="font-size:11px; color:#aaa;">總彩池</div>
-        <div id="statTotalPool" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
-      </div>
-      <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #ffcc00;">
-        <div style="font-size:11px; color:#aaa;">莊家淨利(已結算)</div>
-        <div id="statHostNet" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
-      </div>
-      <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #ff3366;">
-        <div style="font-size:11px; color:#aaa;">最差風險(未結算)</div>
-        <div id="statWorstRisk" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
-      </div>
-    </div>
-    
-    <!-- OPEN MARKETS WARNING -->
-    <div class="container" id="openMarketsWarning" style="display:none;">
-      <div style="background:rgba(255, 51, 102, 0.2); border:1px solid #ff3366; padding:10px 15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <span style="color:#ff3366; font-size:14px;">有未封盤的盤口！</span>
-        <button class="btn btn-danger" id="btnLockAll" style="padding:5px 10px; font-size:12px;">全部封盤</button>
-      </div>
-    </div>
-
-    <!-- TABS -->
-    <div class="container">
-      <div class="tabs" style="display:flex; border-bottom:1px solid #333; margin-bottom:20px;">
-        <div class="tab active" data-target="tab-markets" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#00f0ff; border-bottom:2px solid #00f0ff;">盤口管理</div>
-        <div class="tab" data-target="tab-reports" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">報表與結算</div>
-        <div class="tab" data-target="tab-settings" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">設定與維護</div>
-      </div>
-    </div>
-
-    <!-- TAB CONTENT: MARKETS -->
-    <div class="container tab-content" id="tab-markets">
-      
-      <!-- CREATE MARKET FORM -->
-      <div class="card" style="margin-bottom:20px;">
-        <h3 class="section-title">快速開盤</h3>
-        
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-          <button class="btn btn-gold template-btn" data-type="1v1" style="flex:1;">1v1 對決</button>
-          <button class="btn template-btn" data-type="multi" style="flex:1;">多選一</button>
-          <button class="btn template-btn" data-type="custom" style="flex:1;">自訂盤口</button>
-        </div>
-        
-        <div id="createMarketForm">
-          <div class="form-group">
-            <label>盤口標題</label>
-            <input type="text" id="marketTitle" placeholder="例如：張總 vs 李總 (吹牛對決)">
-          </div>
-          
-          <div class="form-group">
-            <label>盤口說明 (可選)</label>
-            <input type="text" id="marketDesc" placeholder="例如：輸的罰三杯酒">
-          </div>
-          
-          <div class="form-group">
-            <label>選項設定</label>
-            <div id="optionsContainer">
-              <!-- Dynamically populated -->
-            </div>
-            <button class="btn" id="btnAddOption" style="display:none; margin-top:5px; width:100%;">+ 新增選項</button>
-          </div>
-          
-          <details style="margin-bottom:15px; color:#aaa; font-size:12px;">
-            <summary style="cursor:pointer;">高級設定 (抽水/賠率黏性)</summary>
-            <div style="padding-top:10px;">
-              <div class="form-group">
-                <label>獨立抽水率 (%)，留空預設跟隨包廂：</label>
-                <input type="number" id="marketRake" placeholder="如 5">
-              </div>
-              <div class="form-group">
-                <label>定價黏性 (priorK)，預設 5000：</label>
-                <input type="number" id="marketPriorK" value="5000">
-              </div>
-            </div>
-          </details>
-
-          <button class="btn btn-gold" id="btnCreateMarket" style="width:100%;">確認開盤</button>
-        </div>
-      </div>
-
-      <!-- Market List -->
-      <h3 class="section-title">目前盤口</h3>
-      <div id="marketListContainer">
-        <div style="text-align:center; color:#888; padding:20px;">載入中...</div>
+        <h1>莊家<span class="accent-b">後台中心</span></h1>
       </div>
       
+      <div class="header-actions">
+        <button class="btn-icon" id="soundToggleBtn" title="切換音效" onclick="toggleAudioSound()">🔊</button>
+        <a class="btn btn-outline" id="playerLink" target="_blank">開啟玩家頁 ↗</a>
+      </div>
+    </header>
+
+    <div class="d-flex justify-between align-center mb-3">
+      <div id="connStatus" class="conn-pill">
+        <span class="conn-dot"></span> 連線中...
+      </div>
+      <div class="conn-pill" style="border-color: var(--border-gold); background: rgba(240,194,66,0.1); color: var(--gold-bright); font-weight: bold;">
+        💎 幹部額度: <span id="hostCreditsDisplay" class="font-mono">1,000</span> Pts
+      </div>
     </div>
 
-    <div class="container tab-content" id="tab-reports" style="display:none;">
-      <div class="card" style="margin-bottom:20px;">
-        <h3 class="section-title">包廂結算帳單</h3>
-        <p style="font-size:12px; color:#aaa; margin-bottom:15px;">一鍵產生目前所有已結算盤口的總帳單。</p>
-        <button class="btn btn-gold" id="btnGenerateBill" style="width:100%; margin-bottom:15px;">產生結算帳單</button>
-        <textarea id="billOutput" style="width:100%; height:180px; background:#111; color:#00f0ff; border:1px solid #333; border-radius:4px; padding:10px; font-family:monospace; display:none;" readonly></textarea>
-      </div>
-
-      <div class="card">
-        <h3 class="section-title">玩家統計</h3>
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse; font-size:13px;" id="playerReportTable">
-            <thead>
-              <tr style="border-bottom:1px solid #333; color:#aaa;">
-                <th style="padding:8px; text-align:left;">玩家</th>
-                <th style="padding:8px; text-align:right;">注數</th>
-                <th style="padding:8px; text-align:right;">總投注</th>
-                <th style="padding:8px; text-align:right;">損益</th>
-              </tr>
-            </thead>
-            <tbody id="playerReportBody">
-              <!-- populated via js -->
-            </tbody>
-          </table>
+    <!-- CREATE ROOM SECTION -->
+    <div id="createRoomSection" style="display:none;">
+      
+      <!-- WALLET & REDEEM CODE CARD -->
+      <div class="card card-gold-glow form-card-centered mb-4">
+        <div class="d-flex justify-between align-center mb-3">
+          <div>
+            <h3 style="color:var(--gold-bright); margin:0;">💼 幹部點數錢包</h3>
+            <p class="text-dim" style="font-size:0.82rem; margin-top:2px;">開房每次消耗 100 點數 (新註冊免費贈送 1,000 點)</p>
+          </div>
+          <div class="font-mono text-gold" style="font-size:1.8rem; font-weight:800;" id="walletBalanceBig">
+            1,000 Pts
+          </div>
+        </div>
+        
+        <div class="form-group mb-2">
+          <label>輸入禮包 / 儲值兌換碼</label>
+          <div class="d-flex gap-2">
+            <input type="text" id="redeemCodeInput" class="input-control" placeholder="例如：VIP888, WELCOME1000" style="text-transform:uppercase;">
+            <button class="btn btn-gold" id="btnRedeem" style="white-space:nowrap;">💎 立即儲值</button>
+          </div>
+          <div class="text-dim mt-2" style="font-size:0.78rem;">
+            💡 測試可點擊輸入官方禮包碼：<span class="text-gold font-mono" style="cursor:pointer;" onclick="document.getElementById('redeemCodeInput').value='VIP888'">VIP888</span> (5000點) 或 <span class="text-gold font-mono" style="cursor:pointer;" onclick="document.getElementById('redeemCodeInput').value='WELCOME1000'">WELCOME1000</span> (1000點)
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="container tab-content" id="tab-settings" style="display:none;">
-      <div class="card">
-        <h3 class="section-title">危險操作</h3>
-        <p style="font-size:12px; color:#aaa; margin-bottom:15px;">清空所有資料且無法復原。</p>
-        <button class="btn btn-danger" id="btnResetRoom" style="width:100%;">重置/清空包廂</button>
+      <!-- CREATE ROOM CARD -->
+      <div class="card card-cyan-glow form-card-centered">
+        <h2 style="font-size: 1.5rem; color: var(--cyan-bright); margin-bottom: 16px;">👑 建立包廂賭盤 (消耗 100 點)</h2>
+        
+        <div class="form-group">
+          <label>包廂顯示名稱</label>
+          <input type="text" id="roomTitle" placeholder="例如：錢櫃包廂 #808 或 BAR 88 特調賭盤" value="VIP 尊榮投注包廂">
+        </div>
+
+        <div class="form-group">
+          <label>莊家 / 幹部暱稱</label>
+          <input type="text" id="hostName" placeholder="例如：阿翔幹部">
+        </div>
+
+        <!-- CUSTOM RAKE SELECTOR -->
+        <div class="form-group">
+          <label>設定這場幹部抽水率 (Rake): <span id="rakeDisplay" class="text-cyan" style="font-weight: 800; font-size: 1.1rem;">5%</span></label>
+          <div class="chip-group mb-2">
+            ${RAKE_OPTIONS.map(r => `
+              <button type="button" class="chip-btn ${r === 0.05 ? 'active' : ''}" onclick="setRakeValue(${r * 100})">${r * 100}%</button>
+            `).join('')}
+          </div>
+          <input type="range" id="rakeRange" min="0" max="15" value="5" step="1" style="width: 100%; accent-color: var(--cyan);">
+          <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;">抽水率內建於浮動賠率中，結算時會自動獨立統計幹部抽水收益</p>
+        </div>
+
+        <div class="form-group">
+          <label>單筆最高投注上限 ($)</label>
+          <input type="number" id="maxBet" value="10000" min="100" step="500">
+        </div>
+
+        <button class="btn btn-cyan w-100 py-3 mt-3" id="btnCreateRoom" style="font-size: 1.05rem;">
+          ⚡ 扣除 100 點並建立包廂
+        </button>
       </div>
     </div>
-    
+
+    <!-- ACTIVE ROOM SECTION -->
+    <div id="activeRoomSection" style="display:none;">
+      
+      <!-- ROOM INFO & QR CODE CARD -->
+      <div class="card card-gold-glow text-center form-card-centered mb-4">
+        <div class="text-dim" style="font-size:0.82rem; text-transform:uppercase; letter-spacing:2px;">包廂專屬代碼</div>
+        <div id="roomCodeDisplay" class="font-mono text-gold" style="font-size:3rem; font-weight:800; letter-spacing:6px; margin: 4px 0 14px 0;">XXXXXX</div>
+        
+        <div style="background:#fff; padding:10px; display:inline-block; border-radius:12px; box-shadow:0 0 20px rgba(255,255,255,0.15); margin-bottom:14px;">
+          <img id="qrCodeImg" src="" alt="QR Code" width="150" height="150" style="display:block;">
+        </div>
+        
+        <div class="text-dim mb-3" style="font-size:0.88rem;">
+          莊家: <span id="infoHostName" class="text-cyan" style="font-weight:bold;"></span> │ 
+          設定抽水率: <span id="infoRake" class="text-gold" style="font-weight:bold;"></span>%
+        </div>
+        
+        <div class="d-flex gap-2" style="justify-content:center; flex-wrap:wrap;">
+          <button class="btn btn-gold" id="btnCopyLink">📋 複製玩家連結</button>
+          <button class="btn btn-danger" id="btnCloseRoom">🚪 關閉後台</button>
+        </div>
+      </div>
+
+      <!-- REAL-TIME RISK RADAR STRIP -->
+      <div class="summary-strip">
+        <div class="stat-card blue">
+          <div class="lbl">包廂總彩池</div>
+          <div id="statTotalPool" class="num">$0</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="lbl">幹部抽水收益</div>
+          <div id="statHostRake" class="num">+$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">莊家已結算淨利</div>
+          <div id="statHostNet" class="num pos">$0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">未結算最大風險</div>
+          <div id="statWorstRisk" class="num neg">$0</div>
+        </div>
+      </div>
+
+      <!-- OPEN MARKETS EMERGENCY WARNING -->
+      <div id="openMarketsWarning" style="display:none;">
+        <div class="card" style="background:rgba(255, 51, 102, 0.12); border:1px solid var(--red); padding:12px 18px; margin-bottom:18px;">
+          <div class="d-flex justify-between align-center">
+            <div class="d-flex align-center gap-2" style="color:var(--red-bright); font-weight:bold; font-size:0.9rem;">
+              <span>⚠️</span> 提醒：目前有未封盤的開放中盤口！
+            </div>
+            <button class="btn btn-danger" id="btnLockAll" style="padding:5px 12px; font-size:0.8rem;">🔒 一鍵全部封盤</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div class="tabs">
+        <button class="tab-btn active blue" data-target="tab-markets">🎯 盤口管理</button>
+        <button class="tab-btn blue" data-target="tab-reports">📊 結算帳單與明細</button>
+        <button class="tab-btn blue" data-target="tab-referral">🤝 幹部推薦與分潤</button>
+        <button class="tab-btn blue" data-target="tab-settings">⚙️ 設定維護</button>
+      </div>
+
+      <!-- TAB 1: MARKETS -->
+      <div class="tab-content" id="tab-markets">
+        
+        <!-- QUICK PRESETS & CREATE MARKET FORM -->
+        <div class="card mb-4">
+          <h3 class="mb-3" style="color:var(--cyan-bright);">⚡ 快速開盤 (夜店包廂熱門預設)</h3>
+          
+          <div class="preset-grid mb-3">
+            ${NIGHTLIFE_PRESETS.map(p => `
+              <div class="preset-card" onclick="loadPreset('${p.id}')">
+                <div class="preset-title">${esc(p.title)}</div>
+                <div class="preset-desc">${esc(p.desc)}</div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <hr style="border:none; border-top:1px solid var(--border); margin: 18px 0;">
+
+          <h4 class="mb-3" style="color:#fff;">自訂建立盤口</h4>
+          <div id="createMarketForm">
+            <div class="form-group">
+              <label>盤口標題</label>
+              <input type="text" id="marketTitle" placeholder="例如：張總 vs 李總 (吹牛對決)">
+            </div>
+            
+            <div class="form-group">
+              <label>盤口說明 (可選)</label>
+              <input type="text" id="marketDesc" placeholder="例如：輸者罰三杯特調酒">
+            </div>
+            
+            <div class="form-group">
+              <label>選項設定</label>
+              <div id="optionsContainer">
+                <!-- Populated dynamically -->
+              </div>
+              <button class="btn btn-outline w-100 mt-2" id="btnAddOption">+ 新增選項</button>
+            </div>
+
+            <button class="btn btn-gold w-100 py-3" id="btnCreateMarket" style="font-size: 1.05rem;">
+              🚀 確認發布開盤
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Market List -->
+        <h3 class="mb-3" style="color:#fff;">📌 目前盤口列表</h3>
+        <div id="marketListContainer">
+          <div class="card text-center text-dim">載入中...</div>
+        </div>
+        
+      </div>
+
+      <!-- TAB 2: REPORTS & BILL -->
+      <div class="tab-content" id="tab-reports" style="display:none;">
+        
+        <!-- VIP BILL GENERATOR CARD -->
+        <div class="card card-gold-glow mb-4">
+          <h3 class="mb-2" style="color:var(--gold-bright);">📜 一鍵包廂結算帳單</h3>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出幹部抽水收益、莊家總派彩與每一位客人的中獎/輸贏款項。</p>
+          
+          <button class="btn btn-gold w-100 py-3 mb-3" id="btnGenerateBill" style="font-size: 1.05rem;">
+            🧾 一鍵生成全包廂結算明細
+          </button>
+          
+          <div id="billContainer" style="display:none;">
+            <!-- Visual Bill Summary Card -->
+            <div id="visualBillCard" class="card mb-3" style="background:#080a12; border:1px solid var(--gold); padding:16px;">
+              <!-- Populated via JS -->
+            </div>
+            
+            <textarea id="billOutput" style="width:100%; height:200px; background:#080910; color:var(--gold-bright); border:1px solid var(--gold); border-radius:8px; padding:12px; font-family:'JetBrains Mono', monospace; font-size:0.88rem; line-height:1.5;" readonly></textarea>
+            <button class="btn btn-cyan w-100 mt-2" id="btnCopyBill">📋 一鍵複製文字帳單 (貼至 LINE / 微信)</button>
+          </div>
+        </div>
+
+        <!-- PLAYER RANKINGS TABLE -->
+        <div class="card">
+          <h3 class="mb-3" style="color:#fff;">👥 客人損益明細表</h3>
+          <div class="table-responsive">
+            <table id="playerReportTable">
+              <thead>
+                <tr>
+                  <th>客人暱稱</th>
+                  <th class="text-right">注數</th>
+                  <th class="text-right">總投注金額</th>
+                  <th class="text-right">客人結算損益</th>
+                </tr>
+              </thead>
+              <tbody id="playerReportBody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: REFERRAL & REBATE MODULE -->
+      <div class="tab-content" id="tab-referral" style="display:none;">
+        <div class="card card-cyan-glow mb-4">
+          <h3 class="mb-2" style="color:var(--cyan-bright);">🤝 幹部推薦碼與點數分潤</h3>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">推薦其他幹部使用 BetPanel，下線幹部儲值或消費時，您將自動獲得 <strong class="text-cyan">20% 點數返利</strong>！</p>
+          
+          <div class="stat-box mb-3">
+            <div class="stat-label">您的專屬推薦碼</div>
+            <div class="d-flex justify-between align-center">
+              <div class="font-mono text-cyan" style="font-size:1.8rem; font-weight:800;" id="myReferralCodeDisplay">REF-XXXX</div>
+              <button class="btn btn-cyan" onclick="copyReferralCode()">📋 複製推薦碼</button>
+            </div>
+          </div>
+          
+          <div class="summary-strip mb-3">
+            <div class="stat-card blue">
+              <div class="lbl">累計推廣返利</div>
+              <div class="num text-green" id="referralRebateEarned">0 Pts</div>
+            </div>
+            <div class="stat-card blue">
+              <div class="lbl">我的上級幹部</div>
+              <div class="num text-dim" style="font-size:1.1rem;" id="uplineHostDisplay">無</div>
+            </div>
+          </div>
+
+          <div class="form-group mb-2">
+            <label>綁定上線幹部推薦碼 (填寫獲得額外 200 點)</label>
+            <div class="d-flex gap-2">
+              <input type="text" id="uplineCodeInput" class="input-control" placeholder="例如：REF-8888" style="text-transform:uppercase;">
+              <button class="btn btn-outline" id="btnBindUpline">綁定上線</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: SETTINGS -->
+      <div class="tab-content" id="tab-settings" style="display:none;">
+        <div class="card" style="border-color: var(--red);">
+          <h3 class="mb-2" style="color:var(--red-bright);">🚨 危險操作區</h3>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">重置包廂將會永久清空目前包廂所有的盤口與下注紀錄，無法復原。</p>
+          <button class="btn btn-danger w-100 py-3" id="btnResetRoom">⚠️ 重置 / 清空包廂所有資料</button>
+        </div>
+      </div>
+      
+    </div>
+
+    <footer style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-top: 40px; padding: 20px 0;">
+      BetPanel VIP 幹部系統 · 資料毫秒同步 · 專為酒吧/KTV包廂設計
+    </footer>
+
   </div>
 
-  <div id="toast"></div>
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
-      authDomain: "dicebetpanel.firebaseapp.com",
-      databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "dicebetpanel",
-    };
-
     const ROOM_KEY = 'bp-host-room';
     const PIN_KEY = 'bp-host-pin';
+    const HOST_ID_KEY = 'bp-host-id';
     
     let db = null;
     let roomCode = null;
@@ -218,14 +335,38 @@
     let roomRef = null;
     let state = null;
     let pools = {};
+    let hostProfile = null;
 
-    function showToast(msg, isErr=false) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.style.background = isErr ? '#ff3366' : '#222';
-      t.style.color = isErr ? '#fff' : '#00f0ff';
-      t.className = 'show';
-      setTimeout(() => t.className = '', 3000);
+    function updateSoundButtonUI() {
+      const btn = document.getElementById('soundToggleBtn');
+      if(btn) btn.textContent = SoundEngine.isMuted() ? '🔇' : '🔊';
+    }
+
+    function toggleAudioSound() {
+      const isMuted = SoundEngine.toggleMute();
+      updateSoundButtonUI();
+      showToast(isMuted ? '已靜音' : '已開啟音效');
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = msg;
+      
+      if (type === 'error') {
+        toast.style.borderColor = 'var(--red)';
+        toast.style.color = '#fff';
+      } else if (type === 'success') {
+        toast.style.borderColor = 'var(--green)';
+        toast.style.color = 'var(--green)';
+      }
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 3200);
     }
 
     function generateCode(length=6) {
@@ -235,10 +376,113 @@
       return r;
     }
 
+    function setRakeValue(val) {
+      SoundEngine.playChip();
+      document.getElementById('rakeRange').value = val;
+      document.getElementById('rakeDisplay').textContent = val + '%';
+    }
+
     async function initFirebase() {
-      firebase.initializeApp(firebaseConfig);
+      updateSoundButtonUI();
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
       db = firebase.database();
+      await initHostProfile();
       checkSavedRoom();
+      setupRedeemListener();
+    }
+
+    async function initHostProfile() {
+      let hostId = localStorage.getItem(HOST_ID_KEY);
+      if (!hostId) {
+        hostProfile = createHostProfile('尊榮幹部');
+        hostId = hostProfile.hostId;
+        localStorage.setItem(HOST_ID_KEY, hostId);
+        await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
+      } else {
+        const snap = await db.ref(`betpanel/hosts/${hostId}`).once('value');
+        if (snap.exists()) {
+          hostProfile = snap.val();
+        } else {
+          hostProfile = createHostProfile('尊榮幹部', hostId);
+          await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
+        }
+      }
+      updateHostWalletUI();
+    }
+
+    function updateHostWalletUI() {
+      if (!hostProfile) return;
+      const creditsStr = fmt(hostProfile.credits) + ' Pts';
+      document.getElementById('hostCreditsDisplay').textContent = fmt(hostProfile.credits);
+      document.getElementById('walletBalanceBig').textContent = creditsStr;
+      document.getElementById('myReferralCodeDisplay').textContent = hostProfile.referralCode || 'REF-8888';
+      document.getElementById('referralRebateEarned').textContent = fmt(hostProfile.totalRebate || 0) + ' Pts';
+      document.getElementById('uplineHostDisplay').textContent = hostProfile.referredBy || '無';
+    }
+
+    function setupRedeemListener() {
+      document.getElementById('btnRedeem').addEventListener('click', async () => {
+        const codeInput = document.getElementById('redeemCodeInput').value.trim().toUpperCase();
+        if (!codeInput) {
+          SoundEngine.playError();
+          return showToast('請輸入兌換碼', 'error');
+        }
+        
+        try {
+          const codeSnap = await db.ref(`betpanel/redeemCodes/${codeInput}`).once('value');
+          let pointsToAdd = 0;
+          let codeName = '';
+          
+          if (codeSnap.exists()) {
+            const data = codeSnap.val();
+            if (data.used) {
+              SoundEngine.playError();
+              return showToast('此兌換碼已被使用過', 'error');
+            }
+            pointsToAdd = data.points;
+            codeName = data.name || '儲值碼';
+            await db.ref(`betpanel/redeemCodes/${codeInput}`).update({ used: true, usedBy: hostProfile.hostId });
+          } else if (DEFAULT_REDEEM_CODES[codeInput]) {
+            pointsToAdd = DEFAULT_REDEEM_CODES[codeInput].points;
+            codeName = DEFAULT_REDEEM_CODES[codeInput].name;
+            await db.ref(`betpanel/redeemCodes/${codeInput}`).set({ used: true, usedBy: hostProfile.hostId, points: pointsToAdd });
+          } else {
+            SoundEngine.playError();
+            return showToast('無效的兌換碼', 'error');
+          }
+          
+          hostProfile.credits = (hostProfile.credits || 0) + pointsToAdd;
+          await db.ref(`betpanel/hosts/${hostProfile.hostId}/credits`).set(hostProfile.credits);
+          
+          if (hostProfile.referredBy) {
+            const rebateAmt = Math.floor(pointsToAdd * REFERRAL_REBATE_PERCENT);
+            if (rebateAmt > 0) {
+              const uplineSnap = await db.ref(`betpanel/hosts/${hostProfile.referredBy}`).once('value');
+              if (uplineSnap.exists()) {
+                const uplineData = uplineSnap.val();
+                const newCredits = (uplineData.credits || 0) + rebateAmt;
+                const newRebate = (uplineData.totalRebate || 0) + rebateAmt;
+                await db.ref(`betpanel/hosts/${hostProfile.referredBy}`).update({
+                  credits: newCredits,
+                  totalRebate: newRebate
+                });
+              }
+            }
+          }
+          
+          SoundEngine.playWin();
+          showToast(`🎉 成功兌換 [${codeName}]，獲得 +${fmt(pointsToAdd)} 點！`, 'success');
+          document.getElementById('redeemCodeInput').value = '';
+          updateHostWalletUI();
+          
+        } catch (e) {
+          console.error(e);
+          SoundEngine.playError();
+          showToast('兌換處理失敗', 'error');
+        }
+      });
     }
 
     function checkSavedRoom() {
@@ -275,11 +519,13 @@
       document.getElementById('roomCodeDisplay').textContent = code;
       
       const pUrl = window.location.href.replace('banker.html', 'index.html') + '?room=' + code;
-      document.getElementById('qrCodeImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(pUrl);
+      const qrUrl = generateQRCodeSVG(pUrl, 200);
+      document.getElementById('qrCodeImg').src = qrUrl;
       document.getElementById('playerLink').href = pUrl;
       
       roomRef = db.ref('betpanel/rooms/' + code);
       setupListeners();
+      renderCreateForm();
     }
 
     document.getElementById('rakeRange').addEventListener('input', e => {
@@ -287,17 +533,32 @@
     });
 
     document.getElementById('btnCreateRoom').addEventListener('click', async () => {
+      if ((hostProfile.credits || 0) < ROOM_CREATION_COST) {
+        SoundEngine.playError();
+        return showToast(`點數不足 (需 ${ROOM_CREATION_COST} Pts)，請先輸入兌換碼儲值`, 'error');
+      }
+      
+      const rTitle = document.getElementById('roomTitle').value.trim() || 'VIP 尊榮投注包廂';
       const hName = document.getElementById('hostName').value.trim();
       const rake = parseInt(document.getElementById('rakeRange').value);
       const mBet = parseInt(document.getElementById('maxBet').value);
       
-      if(!hName) return showToast('請輸入您的名稱', true);
+      if(!hName) {
+        SoundEngine.playError();
+        return showToast('請輸入莊家/幹部暱稱', 'error');
+      }
+      
+      hostProfile.credits -= ROOM_CREATION_COST;
+      await db.ref(`betpanel/hosts/${hostProfile.hostId}/credits`).set(hostProfile.credits);
+      updateHostWalletUI();
       
       const code = generateCode(6);
       const pin = generateCode(4);
       
       const config = {
+        roomTitle: rTitle,
         hostName: hName,
+        hostId: hostProfile.hostId,
         rake: rake,
         maxBet: mBet,
         pin: pin,
@@ -308,20 +569,53 @@
         await db.ref('betpanel/rooms/' + code + '/config').set(config);
         localStorage.setItem(ROOM_KEY, code);
         localStorage.setItem(PIN_KEY, pin);
-        showToast('包廂建立成功！');
+        SoundEngine.playWin();
+        showToast('扣除 100 點，包廂建立成功！', 'success');
         enterRoom(code);
       } catch(e) {
-        showToast('建立失敗', true);
+        SoundEngine.playError();
+        showToast('建立包廂失敗', 'error');
       }
     });
 
     document.getElementById('btnCopyLink').addEventListener('click', () => {
+      SoundEngine.playChip();
       const pUrl = window.location.href.replace('banker.html', 'index.html') + '?room=' + roomCode;
-      navigator.clipboard.writeText(pUrl).then(() => showToast('連結已複製'));
+      navigator.clipboard.writeText(pUrl).then(() => showToast('已複製玩家鏈結到剪貼簿！', 'success'));
+    });
+
+    function copyReferralCode() {
+      SoundEngine.playChip();
+      const code = hostProfile ? hostProfile.referralCode : 'REF-8888';
+      navigator.clipboard.writeText(code).then(() => showToast('幹部專屬推薦碼已複製！', 'success'));
+    }
+
+    document.getElementById('btnBindUpline').addEventListener('click', async () => {
+      const code = document.getElementById('uplineCodeInput').value.trim().toUpperCase();
+      if (!code) {
+        SoundEngine.playError();
+        return showToast('請輸入推薦碼', 'error');
+      }
+      if (hostProfile.referredBy) {
+        SoundEngine.playError();
+        return showToast('您已綁定過上線幹部', 'error');
+      }
+      
+      hostProfile.referredBy = code;
+      hostProfile.credits = (hostProfile.credits || 0) + 200;
+      await db.ref(`betpanel/hosts/${hostProfile.hostId}`).update({
+        referredBy: code,
+        credits: hostProfile.credits
+      });
+      
+      SoundEngine.playWin();
+      showToast('成功綁定上線！獲得獎勵 +200 點', 'success');
+      updateHostWalletUI();
     });
 
     document.getElementById('btnCloseRoom').addEventListener('click', () => {
-      if(confirm('確定要關閉此包廂？(只會登出後台，不刪除資料)')) {
+      SoundEngine.playChip();
+      if(confirm('確定要關閉此包廂後台？(僅登出後台，不刪除歷史資料)')) {
         localStorage.removeItem(ROOM_KEY);
         localStorage.removeItem(PIN_KEY);
         location.reload();
@@ -329,17 +623,12 @@
     });
 
     function setupListeners() {
-      document.getElementById('connStatus').style.display = 'block';
       db.ref('.info/connected').on('value', snap => {
         const el = document.getElementById('connStatus');
         if(snap.val() === true) {
-          el.className = 'online';
-          el.textContent = '已連線';
-          setTimeout(() => el.style.display = 'none', 2000);
+          el.innerHTML = '<span class="conn-dot online"></span> 已連線';
         } else {
-          el.style.display = 'block';
-          el.className = 'offline';
-          el.textContent = '連線中斷...';
+          el.innerHTML = '<span class="conn-dot offline"></span> 連線中斷...';
         }
       });
 
@@ -348,7 +637,7 @@
         state = normalize(rawState);
         pools = buildPools(state);
         
-        document.getElementById('infoHostName').textContent = esc(state.hostName || '未知');
+        document.getElementById('infoHostName').textContent = esc(state.hostName || '莊家');
         document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
         
         renderMarkets();
@@ -368,6 +657,7 @@
     }
 
     document.getElementById('btnLockAll').addEventListener('click', () => {
+      SoundEngine.playLock();
       const updates = {};
       if(state && state.markets) {
         state.markets.forEach(m => {
@@ -375,117 +665,112 @@
         });
       }
       if(Object.keys(updates).length > 0) {
-        roomRef.update(updates).then(() => showToast('已全部封盤'));
+        roomRef.update(updates).then(() => showToast('已成功全部封盤！', 'success'));
       }
     });
 
     // TABS
-    document.querySelectorAll('.tab').forEach(t => {
+    document.querySelectorAll('.tab-btn').forEach(t => {
       t.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(x => {
-          x.classList.remove('active');
-          x.style.color = '#888';
-          x.style.borderBottom = 'none';
-        });
+        SoundEngine.playChip();
+        document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
         t.classList.add('active');
-        t.style.color = '#00f0ff';
-        t.style.borderBottom = '2px solid #00f0ff';
         
         document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-        document.getElementById(t.dataset.target).style.display = 'block';
+        const targetId = t.dataset.target;
+        document.getElementById(targetId).style.display = 'block';
         
-        if(t.dataset.target === 'tab-reports') renderReports();
+        if(targetId === 'tab-reports') renderReports();
       });
     });
 
-    // Create Market UI
-    let currentTemplate = '1v1';
-    document.querySelectorAll('.template-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.template-btn').forEach(b => {
-          b.classList.remove('btn-gold');
-        });
-        btn.classList.add('btn-gold');
-        currentTemplate = btn.dataset.type;
-        renderCreateForm();
+    function loadPreset(presetId) {
+      SoundEngine.playChip();
+      const preset = NIGHTLIFE_PRESETS.find(p => p.id === presetId);
+      if(!preset) return;
+      
+      document.getElementById('marketTitle').value = preset.title;
+      document.getElementById('marketDesc').value = preset.desc;
+      
+      const c = document.getElementById('optionsContainer');
+      c.innerHTML = '';
+      
+      preset.options.forEach((opt) => {
+        const label = typeof opt === 'string' ? opt : opt.label;
+        const odds = typeof opt === 'object' && opt.odds ? opt.odds : '';
+        addOptionInput(label, odds);
       });
-    });
+      showToast(`已載入預設模板：${preset.title}`, 'info');
+    }
 
     function renderCreateForm() {
       const c = document.getElementById('optionsContainer');
-      const addBtn = document.getElementById('btnAddOption');
       c.innerHTML = '';
-      
-      if(currentTemplate === '1v1') {
-        addBtn.style.display = 'none';
-        c.innerHTML = `
-          <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <input type="text" class="opt-name" placeholder="選手A" style="flex:1;">
-            <input type="text" class="opt-name" placeholder="選手B" style="flex:1;">
-          </div>
-        `;
-      } else if(currentTemplate === 'multi') {
-        addBtn.style.display = 'block';
-        addBtn.onclick = () => addOptionInput(false);
-        c.innerHTML = '';
-        addOptionInput(false); addOptionInput(false); addOptionInput(false);
-      } else if(currentTemplate === 'custom') {
-        addBtn.style.display = 'block';
-        addBtn.onclick = () => addOptionInput(true);
-        c.innerHTML = '';
-        addOptionInput(true); addOptionInput(true);
-      }
+      addOptionInput('選手 A', '');
+      addOptionInput('選手 B', '');
     }
 
-    function addOptionInput(withOdds=false) {
+    function addOptionInput(labelVal='', oddsVal='') {
       const c = document.getElementById('optionsContainer');
       const div = document.createElement('div');
-      div.style.display = 'flex';
-      div.style.gap = '10px';
-      div.style.marginBottom = '10px';
+      div.className = 'd-flex gap-2 mb-2';
       
-      let html = `<input type="text" class="opt-name" placeholder="選項名稱" style="flex:2;">`;
-      if(withOdds) {
-        html += `<input type="number" class="opt-odds" placeholder="賠率 (預設均分)" step="0.01" style="flex:1;">`;
-      }
-      html += `<button class="btn btn-danger btn-remove-opt" style="padding:0 10px;">X</button>`;
+      let html = `<input type="text" class="opt-name input-control" placeholder="選項名稱" value="${esc(labelVal)}" style="flex:2;">`;
+      html += `<input type="number" class="opt-odds input-control" placeholder="賠率(選填)" step="0.05" value="${oddsVal}" style="flex:1;">`;
+      html += `<button class="btn btn-danger btn-remove-opt" style="padding:0 12px;">✕</button>`;
       
       div.innerHTML = html;
-      div.querySelector('.btn-remove-opt').onclick = () => div.remove();
+      div.querySelector('.btn-remove-opt').onclick = () => { SoundEngine.playChip(); div.remove(); };
       c.appendChild(div);
     }
+
+    document.getElementById('btnAddOption').onclick = () => {
+      SoundEngine.playChip();
+      addOptionInput('', '');
+    };
 
     document.getElementById('btnCreateMarket').addEventListener('click', () => {
       const title = document.getElementById('marketTitle').value.trim();
       const desc = document.getElementById('marketDesc').value.trim();
-      const customRake = document.getElementById('marketRake').value;
-      const priorK = document.getElementById('marketPriorK').value || 5000;
+      const priorK = 5000;
       
-      if(!title) return showToast('請輸入標題', true);
-      
-      const names = Array.from(document.querySelectorAll('.opt-name')).map(el => el.value.trim()).filter(x => x);
-      if(names.length < 2) return showToast('至少需要兩個選項', true);
-      
-      let optsObj = {};
-      if(currentTemplate === 'custom') {
-        const oddsInputs = Array.from(document.querySelectorAll('.opt-odds'));
-        names.forEach((n, i) => {
-          let o = parseFloat(oddsInputs[i].value);
-          optsObj['opt_' + i] = { label: n, order: i, odds: (!isNaN(o) && o > 1) ? o : 2.0 };
-        });
-      } else {
-        names.forEach((n, i) => {
-          optsObj['opt_' + i] = { label: n, order: i, odds: 2.0 };
-        });
+      if(!title) {
+        SoundEngine.playError();
+        return showToast('請輸入盤口標題', 'error');
       }
       
+      const nameInputs = Array.from(document.querySelectorAll('.opt-name'));
+      const oddsInputs = Array.from(document.querySelectorAll('.opt-odds'));
+      
+      const optionsArr = [];
+      nameInputs.forEach((el, i) => {
+        const name = el.value.trim();
+        if(name) {
+          const oVal = parseFloat(oddsInputs[i].value);
+          optionsArr.push({
+            label: name,
+            odds: (!isNaN(oVal) && oVal > 1) ? oVal : null
+          });
+        }
+      });
+      
+      if(optionsArr.length < 2) {
+        SoundEngine.playError();
+        return showToast('至少需要設定兩個有效選項', 'error');
+      }
+      
+      let optsObj = {};
+      optionsArr.forEach((opt, i) => {
+        optsObj['opt_' + i] = { label: opt.label, order: i, odds: opt.odds || 2.0 };
+      });
+      
       const marketId = 'm_' + Date.now();
-      const rake = customRake !== '' ? parseInt(customRake) : (state.rakePercent * 100);
+      const rake = (state.rakePercent * 100);
       
       const market = {
         title: title,
         desc: desc,
-        category: currentTemplate,
+        category: 'custom',
         options: optsObj,
         rake: rake,
         priorK: parseInt(priorK),
@@ -495,8 +780,10 @@
       };
       
       roomRef.child('markets').child(marketId).set(market).then(() => {
-        showToast('開盤成功');
+        SoundEngine.playWin();
+        showToast('開盤成功！', 'success');
         document.getElementById('marketTitle').value = '';
+        document.getElementById('marketDesc').value = '';
         renderCreateForm();
       });
     });
@@ -506,7 +793,7 @@
       container.innerHTML = '';
       
       if(!state || !state.markets || state.markets.length === 0) {
-        container.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">尚無盤口</div>';
+        container.innerHTML = '<div class="card text-center text-dim">尚無任何開立的盤口</div>';
         return;
       }
       
@@ -516,78 +803,74 @@
         const totalP = marketTotal(pools, m);
         
         const card = document.createElement('div');
-        card.className = 'card';
-        card.style.position = 'relative';
-        card.style.background = '#13131c';
-        card.style.border = '1px solid #222';
-        card.style.padding = '15px';
-        card.style.marginBottom = '15px';
-        card.style.borderRadius = '8px';
+        card.className = `card ${m.settled ? 'settled-card' : ''}`;
+        card.id = `market-admin-${m.id}`;
         
-        let statusBadge = m.settled ? '<span style="background:#4CAF50; color:#fff; padding:2px 5px; border-radius:3px; font-size:11px;">已結算</span>' :
-                          (m.locked ? '<span style="background:#f44336; color:#fff; padding:2px 5px; border-radius:3px; font-size:11px;">已封盤</span>' : 
-                                      '<span style="background:#00f0ff; color:#000; padding:2px 5px; border-radius:3px; font-size:11px;">開放中</span>');
+        let statusBadge = m.settled ? '<span class="badge badge-settled">🏁 已派彩結算</span>' :
+                          (m.locked ? '<span class="badge badge-locked">🔒 已封盤</span>' : 
+                                      '<span class="badge badge-open">🟢 開放下注中</span>');
                                       
         let html = `
-          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
+          <div class="d-flex justify-between align-center mb-2">
             <div>
-              <h4 style="margin:0; font-size:16px; color:#fff;">${esc(m.title)}</h4>
-              ${m.desc ? `<div style="font-size:12px; color:#aaa; margin-top:2px;">${esc(m.desc)}</div>` : ''}
+              <h4 style="margin:0; font-size:1.2rem; color:#fff;">${esc(m.title)}</h4>
+              ${m.desc ? `<div class="text-dim" style="font-size:0.85rem; margin-top:2px;">${esc(m.desc)}</div>` : ''}
             </div>
             <div>${statusBadge}</div>
           </div>
-          <div style="font-size:12px; color:#aaa; margin-bottom:10px;">
-            總池: $${fmt(totalP)} | 抽水: ${m.rake || (state.rakePercent * 100)}% | PriorK: ${m.priorK || 5000}
+          <div class="text-dim mb-3" style="font-size:0.82rem;">
+            總彩池: <strong class="text-gold">$${fmt(totalP)}</strong> │ 幹部抽水: ${m.rake || (state.rakePercent * 100)}%
           </div>
         `;
         
-        html += `<div style="background:#1a1a24; border-radius:4px; padding:10px; margin-bottom:15px;">`;
+        html += `<div style="background:rgba(0,0,0,0.4); border-radius:8px; padding:12px; margin-bottom:14px;">`;
         m.options.forEach(opt => {
           let cOdds = m.settled ? '-' : liveOdds(pools, m, opt.id).value.toFixed(2);
           let pAmt = poolOf(pools, m.id, opt.id);
           let net = bankerNetIfWins(state, pools, m, opt.id);
-          let netColor = net >= 0 ? '#4CAF50' : '#f44336';
+          let netColor = net >= 0 ? 'var(--green)' : 'var(--red-bright)';
+          let netSign = net >= 0 ? '+' : '';
           
           let isWinner = m.settled && m.winnerId === opt.id;
-          let winStyle = isWinner ? 'border: 1px solid #ffcc00; background: rgba(255,204,0,0.1);' : '';
+          let winStyle = isWinner ? 'border: 1px solid var(--gold); background: rgba(240,194,66,0.12);' : '';
           
           html += `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-bottom:1px solid #222; ${winStyle}">
-              <div style="flex:2; ${isWinner ? 'color:#ffcc00; font-weight:bold;' : 'color:#fff;'}">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-bottom:1px solid var(--border); ${winStyle}">
+              <div style="flex:2; ${isWinner ? 'color:var(--gold-bright); font-weight:bold;' : 'color:#fff;'}">
                 ${isWinner ? '👑 ' : ''}${esc(opt.label)}
               </div>
-              <div style="flex:1; text-align:center; font-family:monospace; color:#00f0ff;">x${cOdds}</div>
-              <div style="flex:1; text-align:right; font-size:12px; color:#aaa;">$${fmt(pAmt)}</div>
-              <div style="flex:1; text-align:right; font-size:12px; color:${netColor}; font-weight:bold;">$${fmt(net)}</div>
+              <div style="flex:1; text-align:center;" class="font-mono text-cyan">x${cOdds}</div>
+              <div style="flex:1; text-align:right; font-size:0.85rem;" class="text-dim">$${fmt(pAmt)}</div>
+              <div style="flex:1; text-align:right; font-size:0.85rem; color:${netColor}; font-weight:bold;" class="font-mono">${netSign}$${fmt(net)}</div>
             </div>
           `;
         });
         html += `</div>`;
         
-        html += `<div style="display:flex; gap:10px; flex-wrap:wrap;">`;
+        html += `<div class="d-flex gap-2" style="flex-wrap:wrap;">`;
         
         if(!m.settled) {
           if(!m.locked) {
-            html += `<button class="btn btn-danger m-lock-btn" data-id="${m.id}" style="flex:1; background:#ff3366; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">封盤</button>`;
+            html += `<button class="btn btn-danger m-lock-btn" data-id="${m.id}" style="flex:1;">🔒 封盤</button>`;
           } else {
-            html += `<button class="btn m-unlock-btn" data-id="${m.id}" style="flex:1; background:#555; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">解鎖</button>`;
-            html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1; background:#ffd700; color:#000; font-weight:bold; border:none; padding:8px; border-radius:4px; cursor:pointer;">結算</button>`;
+            html += `<button class="btn btn-outline m-unlock-btn" data-id="${m.id}" style="flex:1;">🔓 解鎖</button>`;
+            html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1;">🏆 結算派彩</button>`;
           }
         } else {
-          html += `<button class="btn m-unsettle-btn" data-id="${m.id}" style="flex:1; background:#555; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">撤銷結算</button>`;
+          html += `<button class="btn btn-outline m-unsettle-btn" data-id="${m.id}" style="flex:1;">🔄 撤銷結算</button>`;
         }
-        html += `<button class="btn m-del-btn" data-id="${m.id}" style="background:transparent; color:#ff3366; border:1px solid #ff3366; padding:8px; border-radius:4px; cursor:pointer;">刪除</button>`;
+        html += `<button class="btn btn-danger m-del-btn" data-id="${m.id}" style="background:transparent; border:1px solid var(--red); color:var(--red-bright);">🗑️ 刪除</button>`;
         
         html += `</div>`;
         
         if(m.locked && !m.settled) {
           html += `
-            <div id="settle-panel-${m.id}" style="display:none; margin-top:15px; padding:12px; background:#111; border:1px solid #ffcc00; border-radius:6px;">
-              <h5 style="margin:0 0 10px 0; color:#ffcc00;">選擇獲勝選項：</h5>
-              <select id="settle-sel-${m.id}" style="width:100%; margin-bottom:10px; padding:8px; background:#222; color:#fff; border:1px solid #444; border-radius:4px;">
-                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)}</option>`).join('')}
+            <div id="settle-panel-${m.id}" style="display:none; margin-top:14px; padding:14px; background:#0c0e18; border:1px solid var(--gold); border-radius:8px;">
+              <h5 class="text-gold mb-2">選擇獲勝選項進行派彩：</h5>
+              <select id="settle-sel-${m.id}" class="input-control mb-3">
+                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝莊家損益: $${fmt(bankerNetIfWins(state, pools, m, o.id))})</option>`).join('')}
               </select>
-              <button class="btn btn-gold m-confirm-settle-btn" data-id="${m.id}" style="width:100%; padding:10px; background:#ffd700; color:#000; font-weight:bold; border:none; border-radius:4px; cursor:pointer;">確認結算並派彩</button>
+              <button class="btn btn-gold w-100 m-confirm-settle-btn" data-id="${m.id}">✅ 確認宣佈獲勝並即時派彩</button>
             </div>
           `;
         }
@@ -596,14 +879,16 @@
         container.appendChild(card);
       });
       
-      // Bind events
       document.querySelectorAll('.m-lock-btn').forEach(btn => btn.onclick = e => {
+        SoundEngine.playLock();
         roomRef.child('markets').child(e.target.dataset.id).child('locked').set(true);
       });
       document.querySelectorAll('.m-unlock-btn').forEach(btn => btn.onclick = e => {
+        SoundEngine.playChip();
         roomRef.child('markets').child(e.target.dataset.id).child('locked').set(false);
       });
       document.querySelectorAll('.m-settle-btn').forEach(btn => btn.onclick = e => {
+        SoundEngine.playChip();
         const id = e.target.dataset.id;
         const panel = document.getElementById('settle-panel-' + id);
         if(panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -611,16 +896,19 @@
       document.querySelectorAll('.m-confirm-settle-btn').forEach(btn => btn.onclick = e => {
         const id = e.target.dataset.id;
         const winId = document.getElementById('settle-sel-' + id).value;
-        if(confirm('確定要宣佈此選項獲勝？結算後將按鎖定賠率派彩。')) {
+        if(confirm('確定要宣佈此選項獲勝？結算後系統將依照鎖定賠率進行派彩。')) {
           roomRef.child('markets').child(id).update({
             settled: true,
             winnerId: winId
-          }).then(() => showToast('結算成功！'));
+          }).then(() => {
+            SoundEngine.playWin();
+            showToast('結算成功！', 'success');
+          });
         }
       });
       document.querySelectorAll('.m-unsettle-btn').forEach(btn => btn.onclick = e => {
         const id = e.target.dataset.id;
-        if(confirm('確定撤銷結算？')) {
+        if(confirm('確定撤銷結算？盤口將恢復為封盤狀態。')) {
           roomRef.child('markets').child(id).update({
             settled: false,
             winnerId: null
@@ -629,7 +917,7 @@
       });
       document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = e => {
         const id = e.target.dataset.id;
-        if(confirm('確定要刪除此盤口？刪除後無法恢復。')) {
+        if(confirm('確定要刪除此盤口？此動作無法復原。')) {
           roomRef.child('markets').child(id).remove();
         }
       });
@@ -638,7 +926,13 @@
     function updateStats() {
       const exp = bankerExposure(state, pools);
       document.getElementById('statTotalPool').textContent = '$' + fmt(exp.staked);
-      document.getElementById('statHostNet').textContent = (exp.settledNet >= 0 ? '+' : '') + '$' + fmt(exp.settledNet);
+      document.getElementById('statHostRake').textContent = '+$' + fmt(exp.totalRakeEarned);
+      
+      const hostNetEl = document.getElementById('statHostNet');
+      const sign = exp.settledNet >= 0 ? '+' : '';
+      hostNetEl.textContent = sign + '$' + fmt(exp.settledNet);
+      hostNetEl.className = 'num ' + (exp.settledNet >= 0 ? 'pos' : 'neg');
+      
       document.getElementById('statWorstRisk').textContent = '$' + fmt(Math.abs(exp.worstOpen));
     }
 
@@ -648,52 +942,93 @@
       tbody.innerHTML = '';
       
       pStats.forEach(p => {
-        const pnl = -p.bankerNet;
-        const color = pnl > 0 ? '#4CAF50' : (pnl < 0 ? '#f44336' : '#fff');
+        const pnl = p.profit;
+        const color = pnl > 0 ? 'var(--green)' : (pnl < 0 ? 'var(--red-bright)' : 'var(--text-main)');
         const sign = pnl > 0 ? '+' : '';
         tbody.innerHTML += `
-          <tr style="border-bottom:1px solid #222;">
-            <td style="padding:8px; color:#fff;">${esc(p.name)}</td>
-            <td style="padding:8px; text-align:right; color:#aaa;">${p.bets}</td>
-            <td style="padding:8px; text-align:right; color:#aaa;">$${fmt(p.staked)}</td>
-            <td style="padding:8px; text-align:right; color:${color}; font-weight:bold;">${sign}$${fmt(pnl)}</td>
+          <tr>
+            <td style="font-weight:600; color:#fff;">${esc(p.name)}</td>
+            <td class="text-right text-dim">${p.bets}</td>
+            <td class="text-right font-mono text-dim">$${fmt(p.staked)}</td>
+            <td class="text-right font-mono" style="color:${color}; font-weight:bold;">${sign}$${fmt(pnl)}</td>
           </tr>
         `;
       });
     }
 
     document.getElementById('btnGenerateBill').addEventListener('click', () => {
-      if(!state || !state.markets) return showToast('無資料', true);
+      SoundEngine.playWin();
+      if(!state || !state.markets) return showToast('尚無資料可產出帳單', 'error');
+      
       const res = roomSettlement(state, pools);
+      const billText = generateFormattedBill(state, pools);
       
-      let bill = `=== 【BetPanel 包廂結算帳單】 ===\n`;
-      bill += `時間：${new Date().toLocaleString('zh-TW')}\n`;
-      bill += `總下注金額：$${fmt(res.totalPool)}\n`;
-      bill += `-----------------------------------\n`;
-      bill += `【莊家 (莫家)】\n`;
-      bill += `莊家淨收益：$${fmt(res.hostNet)}\n`;
-      bill += `-----------------------------------\n`;
-      bill += `【玩家帳單 (玄家)】\n`;
+      const visualCard = document.getElementById('visualBillCard');
+      let vHtml = `
+        <div class="d-flex justify-between align-center mb-3">
+          <h4 style="color:var(--gold-bright); margin:0;">👑 ${esc(state.roomTitle)} · 結算明細卡</h4>
+          <span class="badge badge-open">包廂幹部: ${esc(state.hostName)}</span>
+        </div>
+        <div class="summary-strip mb-3">
+          <div class="stat-card blue">
+            <div class="lbl">總下注池</div>
+            <div class="num text-gold">$${fmt(res.totalPool)}</div>
+          </div>
+          <div class="stat-card blue">
+            <div class="lbl">幹部抽水收益</div>
+            <div class="num text-cyan">+$${fmt(res.hostRake)}</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">莊家結算損益</div>
+            <div class="num ${res.hostNet >= 0 ? 'pos' : 'neg'}">${res.hostNet >= 0 ? '+' : ''}$${fmt(res.hostNet)}</div>
+          </div>
+        </div>
+        <h5 class="text-dim mb-2">客人帳單款項明細：</h5>
+        <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:8px 12px;">
+      `;
       
-      res.players.forEach(p => {
-        const sign = p.profit > 0 ? '+' : '';
-        bill += `${p.name}：\t${sign}$${fmt(p.profit)}\n`;
-      });
-      
-      bill += `===================================\n`;
-      
+      if (res.players.length === 0) {
+        vHtml += `<div class="text-center text-dim p-2">尚無已派彩的客人紀錄</div>`;
+      } else {
+        res.players.forEach(p => {
+          const color = p.profit > 0 ? 'var(--green)' : (p.profit < 0 ? 'var(--red-bright)' : 'var(--text-main)');
+          const sign = p.profit > 0 ? '👑 贏 +' : (p.profit < 0 ? '💔 輸 -' : '🤝 平 ');
+          vHtml += `
+            <div class="d-flex justify-between align-center py-2" style="border-bottom:1px solid rgba(255,255,255,0.06);">
+              <span style="font-weight:bold; color:#fff;">${esc(p.name)}</span>
+              <span class="font-mono" style="color:${color}; font-weight:bold; font-size:1.05rem;">${sign}$${fmt(Math.abs(p.profit))}</span>
+            </div>
+          `;
+        });
+      }
+      vHtml += `</div>`;
+      visualCard.innerHTML = vHtml;
+
       const out = document.getElementById('billOutput');
-      out.value = bill;
-      out.style.display = 'block';
+      const container = document.getElementById('billContainer');
+      out.value = billText;
+      container.style.display = 'block';
+      showToast('超清晰結算明細表已成功生成！', 'success');
+    });
+
+    document.getElementById('btnCopyBill').addEventListener('click', () => {
+      SoundEngine.playChip();
+      const out = document.getElementById('billOutput');
+      navigator.clipboard.writeText(out.value).then(() => {
+        showToast('結算帳單已成功複製到剪貼簿！可直接貼至 LINE / 微信', 'success');
+      });
     });
 
     document.getElementById('btnResetRoom').addEventListener('click', () => {
-      const p = prompt('警告：這將清空所有盤口與下注資料！\n請輸入大寫 "RESET" 以確認：');
+      const p = prompt('⚠️ 警告：這將清空包廂所有盤口與下注資料！\n若確認執行，請輸入大寫 "RESET"：');
       if(p === 'RESET') {
         roomRef.update({
           markets: null,
           bets: null
-        }).then(() => showToast('包廂已重置'));
+        }).then(() => {
+          SoundEngine.playLock();
+          showToast('包廂資料已成功重置', 'success');
+        });
       }
     });
 

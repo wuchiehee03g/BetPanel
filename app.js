@@ -1,8 +1,7 @@
 /**
- * BetPanel - 包廂熱場投注系統
- * 核心引擎 (Core Engine)
- * 包含所有業務邏輯、賠率計算、注單驗證與報表產出
- * 不包含任何 DOM 操作，可供玩家端與幹部端共用
+ * BetPanel · 包廂熱場投注系統
+ * 核心引擎 (Core Engine v3.0 - Commercial Edition)
+ * 包含：業務邏輯、賠率引擎、點數錢包、兌換碼儲值、推薦分潤模組、極簡帳單與 Web Audio 音效
  */
 
 const DB_PATH = 'betpanel';
@@ -11,8 +10,12 @@ const DEFAULT_PRIOR_K = 20000;
 const DEFAULT_MAX_BET = 10000;
 const MAX_AUTO_ODDS = 50;
 const MIN_AUTO_ODDS = 1.01;
-const QUICK_AMOUNTS = [500, 1000, 5000, 10000];
+const QUICK_AMOUNTS = [100, 500, 1000, 5000];
 const DEFAULT_RAKE = 0.05; // 預設 5% 抽水
+const ROOM_CREATION_COST = 100; // 建立一次包廂消耗 100 點數
+const REFERRAL_REBATE_PERCENT = 0.20; // 下線儲值/消費 20% 返利給上線幹部
+
+const RAKE_OPTIONS = [0, 0.03, 0.05, 0.10]; // 0%, 3%, 5%, 10%
 
 const CATEGORIES = [
   { key: 'duel', label: '1v1 對決', hint: '兩人對決，押誰贏' },
@@ -20,11 +23,64 @@ const CATEGORIES = [
   { key: 'custom', label: '自訂盤口', hint: '自由設定選項與賠率' },
 ];
 
+// 夜店/包廂熱門預設盤口
+const NIGHTLIFE_PRESETS = [
+  {
+    id: 'dice_duel',
+    title: '吹牛對決 (1v1)',
+    desc: '勝者繼續留桌，輸的罰酒一杯',
+    category: 'duel',
+    options: ['選手 A', '選手 B']
+  },
+  {
+    id: 'dice_size',
+    title: '骰子比大小',
+    desc: '大(11-17) / 小(4-10) / 豹子(三顆相同賠5倍)',
+    category: 'custom',
+    options: [
+      { label: '大 (11-17)', odds: 1.95 },
+      { label: '小 (4-10)', odds: 1.95 },
+      { label: '豹子 (三同數)', odds: 5.00 }
+    ]
+  },
+  {
+    id: 'singing_score',
+    title: 'KTV 歡唱評分對決',
+    desc: '挑戰下一首歌評分是否突破 90 分',
+    category: 'custom',
+    options: [
+      { label: '高分突破 (>= 90分)', odds: 2.10 },
+      { label: '未達標準 (< 90分)', odds: 1.75 }
+    ]
+  },
+  {
+    id: 'drinking_finger',
+    title: '划拳喝酒生死鬥',
+    desc: '5戰3勝制划拳對決',
+    category: 'duel',
+    options: ['主攻 (莊家)', '挑戰者']
+  },
+  {
+    id: 'king_penalty',
+    title: '國王大冒險懲罰預測',
+    desc: '預測被抽中的幸運兒會選擇哪種懲罰',
+    category: 'multi',
+    options: ['乾杯特調酒', '對異性深情告白', '現場大聲高歌', '現場做20下伏地挺身']
+  }
+];
+
+// 預設示範兌換碼 (若資料庫尚無則自動初始化)
+const DEFAULT_REDEEM_CODES = {
+  'VIP888': { points: 5000, name: 'VIP尊榮儲值碼 (5000點)' },
+  'WELCOME1000': { points: 1000, name: '幹部首儲新手禮 (1000點)' },
+  'NIGHTCLUB5000': { points: 5000, name: '夜店專案儲值碼 (5000點)' },
+  'BETPANEL2026': { points: 2000, name: '官方禮包碼 (2000點)' }
+};
+
 /* =========================================
  * 1. 基礎工具 (Utility)
  * ========================================= */
 
-// 防止 XSS 攻擊
 function esc(s) {
   if (!s) return '';
   return String(s)
@@ -35,23 +91,113 @@ function esc(s) {
     .replace(/'/g, '&#039;');
 }
 
-// 數字格式化 (含千分位)
 function fmt(n) {
   if (n == null || isNaN(n)) return '0';
   return Number(n).toLocaleString('en-US');
 }
 
-// 產生隨機 ID
 function uid() {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 }
 
+function generateReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let r = 'REF-';
+  for (let i = 0; i < 4; i++) {
+    r += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return r;
+}
+
 /* =========================================
- * 2. 包廂管理 (Room Management)
+ * 2. 音效引擎 (Web Audio API Sound Engine)
+ * ========================================= */
+
+const SoundEngine = {
+  ctx: null,
+  init() {
+    if (!this.ctx && typeof window !== 'undefined') {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) this.ctx = new AudioContextClass();
+    }
+  },
+  isMuted() {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem('bp_sfx_muted') === 'true';
+  },
+  toggleMute() {
+    const muted = !this.isMuted();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bp_sfx_muted', muted ? 'true' : 'false');
+    }
+    return muted;
+  },
+  playTone(freq, type, duration, gainVal = 0.1) {
+    if (this.isMuted()) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch (e) {}
+  },
+  playChip() {
+    this.playTone(1200, 'sine', 0.08, 0.12);
+  },
+  playBet() {
+    if (this.isMuted()) return;
+    this.playTone(523.25, 'triangle', 0.1, 0.15);
+    setTimeout(() => this.playTone(659.25, 'triangle', 0.15, 0.15), 70);
+  },
+  playWin() {
+    if (this.isMuted()) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      setTimeout(() => this.playTone(freq, 'sine', 0.2, 0.2), idx * 90);
+    });
+  },
+  playLock() {
+    this.playTone(220, 'sawtooth', 0.15, 0.15);
+  },
+  playError() {
+    this.playTone(180, 'square', 0.2, 0.15);
+  }
+};
+
+/* =========================================
+ * 3. 幹部點數錢包與推薦分潤模組 (Host Wallet & Referral System)
+ * ========================================= */
+
+function createHostProfile(hostName, hostId = null) {
+  const id = hostId || 'host_' + Math.random().toString(36).substring(2, 9);
+  return {
+    hostId: id,
+    hostName: hostName || '尊榮幹部',
+    credits: 1000, // 初始贈送 1000 點開房點數
+    referralCode: generateReferralCode(),
+    referredBy: null,
+    totalRebate: 0,
+    createdAt: Date.now()
+  };
+}
+
+/* =========================================
+ * 4. 包廂管理 (Room Management)
  * ========================================= */
 
 function generateRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除容易混淆的字母
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let res = '';
   for (let i = 0; i < 6; i++) {
     res += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -67,10 +213,12 @@ function generateRoomPin() {
   return res;
 }
 
-function createRoom(hostName, rakePercent = DEFAULT_RAKE, maxBet = DEFAULT_MAX_BET) {
+function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet = DEFAULT_MAX_BET, hostId = null) {
   return {
     code: generateRoomCode(),
-    hostName: hostName || '包廂主人',
+    hostName: hostName || '包廂莊家',
+    hostId: hostId || 'host_anon',
+    roomTitle: roomTitle || 'VIP 尊榮投注包廂',
     hostPin: generateRoomPin(),
     rakePercent: Number(rakePercent),
     createdAt: Date.now(),
@@ -85,15 +233,17 @@ function roomDbPath(roomCode) {
 }
 
 /* =========================================
- * 3. 資料正規化 (Data Normalization)
+ * 5. 資料正規化 (Data Normalization)
  * ========================================= */
 
 function normalize(raw) {
-  if (!raw) return { markets: [], bets: [] };
+  if (!raw) return { markets: [], bets: [], hostName: '包廂莊家', roomTitle: 'VIP 包廂' };
   
   const config = raw.config || {};
   const state = {
-    hostName: config.hostName || raw.hostName || '包廂主人',
+    hostName: config.hostName || raw.hostName || '包廂莊家',
+    hostId: config.hostId || raw.hostId || '',
+    roomTitle: config.roomTitle || raw.roomTitle || 'VIP 尊榮投注包廂',
     hostPin: config.pin || raw.hostPin || '',
     rakePercent: typeof config.rake === 'number' ? (config.rake / 100) : (typeof raw.rakePercent === 'number' ? raw.rakePercent : DEFAULT_RAKE),
     createdAt: config.createdAt || raw.createdAt || Date.now(),
@@ -102,7 +252,6 @@ function normalize(raw) {
     bets: []
   };
 
-  // 處理 markets
   if (raw.markets) {
     state.markets = Object.keys(raw.markets).map(mId => {
       const m = raw.markets[mId];
@@ -114,7 +263,6 @@ function normalize(raw) {
     state.markets.sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
-  // 處理 bets
   if (raw.bets) {
     state.bets = Object.keys(raw.bets).map(bId => {
       return { ...raw.bets[bId], id: bId };
@@ -126,7 +274,7 @@ function normalize(raw) {
 }
 
 /* =========================================
- * 4. 資金池計算 (Pool Calculations)
+ * 6. 資金池計算 (Pool Calculations)
  * ========================================= */
 
 function buildPools(state) {
@@ -152,10 +300,9 @@ function marketTotal(pools, market) {
 }
 
 /* =========================================
- * 5. 賠率引擎 (Odds Engine)
+ * 7. 賠率引擎 (Odds Engine)
  * ========================================= */
 
-// 計算莊家抽水比例 (Overround)
 function bookOverround(market) {
   let sum = 0;
   for (const opt of market.options) {
@@ -164,12 +311,6 @@ function bookOverround(market) {
   return sum;
 }
 
-// 計算莊家利潤率 (Margin)
-function bookMargin(market) {
-  return bookOverround(market) - 1;
-}
-
-// 貝氏自動調盤演算法 (Bayesian Auto-Adjusting Odds)
 function autoOdds(pools, market, optId) {
   const O = bookOverround(market);
   const K = typeof market.priorK === 'number' ? market.priorK : DEFAULT_PRIOR_K;
@@ -180,48 +321,26 @@ function autoOdds(pools, market, optId) {
   if (!opt) return DEFAULT_ODDS;
   
   const initialOdds = opt.odds || DEFAULT_ODDS;
-  const q_i = (1 / initialOdds) / O; // 先驗機率 (真實機率，已扣除抽水)
+  const q_i = (1 / initialOdds) / O;
   
-  // 新賠率公式: (K + S) / (O * (K*q_i + s_i))
   let rawOdds = (K + S) / (O * (K * q_i + s_i));
-  
-  // 限制極端值
   rawOdds = Math.max(MIN_AUTO_ODDS, Math.min(MAX_AUTO_ODDS, rawOdds));
   return Number(rawOdds.toFixed(2));
 }
 
-// 取得當前有效賠率 (浮動或固定)
 function liveOdds(pools, market, optId) {
   const opt = market.options.find(o => o.id === optId);
   if (!opt) return { value: DEFAULT_ODDS, auto: false, opening: DEFAULT_ODDS };
   
-  const auto = market.autoPrice !== false; // 預設開啟自動調盤
+  const auto = market.autoPrice !== false;
   const opening = opt.odds || DEFAULT_ODDS;
   const value = auto ? autoOdds(pools, market, optId) : opening;
   
   return { value, auto, opening };
 }
 
-// 評估最大注額對賠率的衝擊
-function maxBetImpact(priorK, maxBet, optionCount) {
-  const O = 1.05; // 假設 5% 抽水
-  const q_i = 1 / optionCount;
-  const oldOdds = (priorK + 0) / (O * (priorK * q_i + 0));
-  const newOdds = (priorK + maxBet) / (O * (priorK * q_i + maxBet));
-  const dropPercent = (oldOdds - newOdds) / oldOdds;
-  return dropPercent;
-}
-
-// 建議 K 值以達到目標降幅
-function suggestPriorK(maxBet, optionCount, targetDrop = 0.1) {
-  // 根據模擬與推導，K值可粗估為注額與選項數的函數
-  // 此處提供一個簡化的經驗公式
-  let k = maxBet * (1 - targetDrop) / (targetDrop * optionCount);
-  return Math.max(1000, Math.round(k / 1000) * 1000);
-}
-
 /* =========================================
- * 6. 盤口建立 (Market Creation)
+ * 8. 盤口建立 (Market Creation)
  * ========================================= */
 
 function buildDuelMarket(opts) {
@@ -232,7 +351,7 @@ function buildDuelMarket(opts) {
   
   return {
     title: `${nameA} vs ${nameB}`,
-    desc: '1v1 對決',
+    desc: '1v1 對決盤口',
     category: 'duel',
     rakePercent: rake,
     autoPrice: true,
@@ -251,44 +370,12 @@ function buildDuelMarket(opts) {
   };
 }
 
-function buildMultiMarket(opts) {
-  const { title, desc, options, rakePercent, priorK, maxBet, maxPerBettor, maxLiability } = opts;
-  const rake = typeof rakePercent === 'number' ? rakePercent : DEFAULT_RAKE;
-  const count = options.length;
-  const impliedProb = 1 / count;
-  const initialOdds = 1 / (impliedProb * (1 + rake));
-  
-  const mOptions = options.map((optLabel, idx) => ({
-    id: `opt${idx}`,
-    label: optLabel,
-    order: idx,
-    odds: Number(initialOdds.toFixed(2))
-  }));
-  
-  return {
-    title,
-    desc,
-    category: 'multi',
-    rakePercent: rake,
-    autoPrice: true,
-    priorK: priorK || DEFAULT_PRIOR_K,
-    maxBet: maxBet || null,
-    maxPerBettor: maxPerBettor || null,
-    maxLiability: maxLiability || null,
-    locked: false,
-    settled: false,
-    winnerId: null,
-    order: Date.now(),
-    options: mOptions
-  };
-}
-
 function buildCustomMarket(opts) {
-  const { title, desc, options, rakePercent, autoPrice, priorK, maxBet, maxPerBettor, maxLiability } = opts;
+  const { title, desc, options, rakePercent, autoPrice, priorK, maxBet } = opts;
   
   const mOptions = options.map((opt, idx) => ({
     id: `opt${idx}`,
-    label: opt.label,
+    label: typeof opt === 'string' ? opt : opt.label,
     order: idx,
     odds: Number(opt.odds || 2)
   }));
@@ -301,8 +388,6 @@ function buildCustomMarket(opts) {
     autoPrice: autoPrice !== false,
     priorK: priorK || DEFAULT_PRIOR_K,
     maxBet: maxBet || null,
-    maxPerBettor: maxPerBettor || null,
-    maxLiability: maxLiability || null,
     locked: false,
     settled: false,
     winnerId: null,
@@ -312,15 +397,13 @@ function buildCustomMarket(opts) {
 }
 
 /* =========================================
- * 7. 風險與結算 (Risk & Settlement)
+ * 9. 風險與結算 (Risk & Settlement)
  * ========================================= */
 
-// 獲取注單鎖定的賠率 (若無則取 1.0)
 function betOdds(bet) {
   return Number(bet.oddsAtBet) || 1.0;
 }
 
-// 計算若某選項獲勝，莊家的淨損益
 function bankerNetIfWins(state, pools, market, winOptId) {
   if (!market) return 0;
   
@@ -336,7 +419,6 @@ function bankerNetIfWins(state, pools, market, winOptId) {
   return total - payout;
 }
 
-// 計算莊家最差情況 (最大潛在虧損)
 function worstCase(state, pools, market) {
   if (!market || !market.options || market.options.length === 0) return 0;
   
@@ -350,7 +432,6 @@ function worstCase(state, pools, market) {
   return worst;
 }
 
-// 結算詳細資訊 (包含抽水計算)
 function settleInfo(state, pools, market) {
   if (!market) return null;
   
@@ -359,7 +440,7 @@ function settleInfo(state, pools, market) {
     return { total: 0, payoutTotal: 0, bankerNet: 0, rakeEarned: 0, winPool: 0, empty: true };
   }
   
-  if (!market.winnerId) return null; // 尚未結算
+  if (!market.winnerId) return null;
   
   let payoutTotal = 0;
   for (const bet of state.bets) {
@@ -370,7 +451,7 @@ function settleInfo(state, pools, market) {
   
   const bankerNet = total - payoutTotal;
   const winPool = poolOf(pools, market.id, market.winnerId);
-  const rakeEarned = total * (market.rakePercent || 0); // 理論抽水值
+  const rakeEarned = total * (market.rakePercent || 0); // 幹部設定之抽水收益
   
   return {
     total,
@@ -382,7 +463,6 @@ function settleInfo(state, pools, market) {
   };
 }
 
-// 單一注單結果
 function betOutcome(state, pools, bet) {
   const market = state.markets.find(m => m.id === bet.marketId);
   if (!market || !market.settled || !market.winnerId) {
@@ -397,97 +477,44 @@ function betOutcome(state, pools, bet) {
   }
 }
 
-/* =========================================
- * 8. 驗證邏輯 (Validation)
- * ========================================= */
-
-// 有效最大注額 (取包廂或盤口設定的較小值)
 function effectiveMaxBet(state, market) {
-  if (market && market.maxBet !== null) return market.maxBet;
+  if (market && market.maxBet !== null && market.maxBet > 0) return market.maxBet;
   return state.maxBet || DEFAULT_MAX_BET;
 }
 
 function validateBetAmount(rawAmount, maxBet) {
   const amount = Number(rawAmount);
-  if (isNaN(amount) || amount <= 0) return '無效的下注金額';
-  if (!Number.isInteger(amount)) return '金額必須為整數';
-  if (amount > maxBet) return `單注金額不能超過 ${fmt(maxBet)}`;
-  return null;
+  if (isNaN(amount) || amount <= 0) return { ok: false, reason: '請輸入有效的下注金額' };
+  if (!Number.isInteger(amount)) return { ok: false, reason: '金額必須為整數' };
+  if (amount > maxBet) return { ok: false, reason: `單注金額不能超過 $${fmt(maxBet)}` };
+  return { ok: true };
 }
 
-// 模擬下注後的莊家負債
-function liabilityIfBetPlaced(state, pools, market, optId, amount, oddsAtBet) {
-  const currentWorst = worstCase(state, pools, market);
-  const total = marketTotal(pools, market) + amount;
-  
-  let newWorst = Infinity;
-  for (const opt of market.options) {
-    let payout = 0;
-    // 原本的賠付
-    for (const bet of state.bets) {
-      if (bet.marketId === market.id && bet.optionId === opt.id) {
-        payout += bet.amount * betOdds(bet);
-      }
-    }
-    // 加入新注單的賠付 (如果贏了)
-    if (opt.id === optId) {
-      payout += amount * oddsAtBet;
-    }
-    
-    const net = total - payout;
-    if (net < newWorst) {
-      newWorst = net;
-    }
-  }
-  
-  return { currentWorst, newWorst, diff: newWorst - currentWorst };
+function sameNickname(n1, n2) {
+  if (!n1 || !n2) return false;
+  return n1.trim().toLowerCase() === n2.trim().toLowerCase();
 }
 
-function checkLiability(state, pools, market, optId, amount, oddsAtBet) {
-  if (!market.maxLiability) return null; // 無限制
-  
-  const { newWorst } = liabilityIfBetPlaced(state, pools, market, optId, amount, oddsAtBet);
-  
-  if (newWorst < 0 && Math.abs(newWorst) > market.maxLiability) {
-    return `此注會使莊家風險超過設定上限 (上限 ${fmt(market.maxLiability)})`;
-  }
-  return null;
-}
-
-// 計算單一玩家在該盤口的已下注總額
-function bettorStakeOn(state, marketId, bettorId, name) {
-  let sum = 0;
-  for (const bet of state.bets) {
-    if (bet.marketId === marketId && (bet.bettorId === bettorId || bet.name === name)) {
-      sum += bet.amount;
-    }
-  }
-  return sum;
-}
-
-function checkPerBettor(state, market, bettorId, name, amount) {
-  if (!market.maxPerBettor) return null;
-  const staked = bettorStakeOn(state, market.id, bettorId, name);
-  if (staked + amount > market.maxPerBettor) {
-    return `每人此盤口最高限額為 ${fmt(market.maxPerBettor)}，您已下注 ${fmt(staked)}`;
-  }
-  return null;
-}
-
-function liabilityUsage(state, pools, market) {
-  if (!market.maxLiability) return 0;
-  const worst = worstCase(state, pools, market);
-  if (worst >= 0) return 0;
-  return Math.abs(worst) / market.maxLiability;
-}
-
-function isHostBanned(market, name) {
-  // 簡單限制：名稱為"包廂主人"無法下注
-  return name === '包廂主人' || name === '幹部';
+function getRecentActivity(state, limit = 10) {
+  if (!state || !state.bets) return [];
+  const sorted = [...state.bets].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, limit);
+  return sorted.map(b => {
+    const market = state.markets.find(m => m.id === b.marketId);
+    const opt = market ? market.options.find(o => o.id === b.optionId) : null;
+    return {
+      id: b.id,
+      name: b.name || '神秘玩家',
+      marketTitle: market ? market.title : '盤口',
+      optionLabel: opt ? opt.label : '選項',
+      amount: b.amount,
+      odds: betOdds(b),
+      ts: b.ts || Date.now()
+    };
+  });
 }
 
 /* =========================================
- * 9. 報表產出 (Reports)
+ * 10. 報表與結算單產出 (Reports & Bill)
  * ========================================= */
 
 function reportByBettor(state, pools) {
@@ -496,10 +523,12 @@ function reportByBettor(state, pools) {
   for (const bet of state.bets) {
     const key = bet.name || bet.bettorId;
     if (!map[key]) {
-      map[key] = { name: key, totalStaked: 0, winCount: 0, loseCount: 0, pendingCount: 0, profit: 0 };
+      map[key] = { name: key, totalStaked: 0, staked: 0, winCount: 0, loseCount: 0, pendingCount: 0, profit: 0, bankerNet: 0, bets: 0 };
     }
     
     map[key].totalStaked += bet.amount;
+    map[key].staked += bet.amount;
+    map[key].bets++;
     
     const outcome = betOutcome(state, pools, bet);
     if (outcome.status === 'win') {
@@ -511,69 +540,36 @@ function reportByBettor(state, pools) {
     } else {
       map[key].pendingCount++;
     }
+    map[key].bankerNet = -map[key].profit;
   }
   
   return Object.values(map).sort((a, b) => b.profit - a.profit);
 }
 
-function reportByCategory(state, pools) {
-  const map = {};
-  
-  for (const m of state.markets) {
-    const cat = m.category || 'custom';
-    if (!map[cat]) {
-      map[cat] = { category: cat, marketCount: 0, totalPool: 0, bankerNet: 0 };
-    }
-    map[cat].marketCount++;
-    map[cat].totalPool += marketTotal(pools, m);
-    
-    if (m.settled && m.winnerId) {
-      const info = settleInfo(state, pools, m);
-      if (info) {
-        map[cat].bankerNet += info.bankerNet;
-      }
-    }
-  }
-  
-  return Object.values(map);
-}
-
-function reportByTime(state, bucketMinutes = 60) {
-  const map = {};
-  const ms = bucketMinutes * 60000;
-  
-  for (const bet of state.bets) {
-    const bucket = Math.floor(bet.ts / ms) * ms;
-    if (!map[bucket]) {
-      map[bucket] = { time: bucket, betCount: 0, volume: 0 };
-    }
-    map[bucket].betCount++;
-    map[bucket].volume += bet.amount;
-  }
-  
-  return Object.values(map).sort((a, b) => a.time - b.time);
-}
-
 function bankerExposure(state, pools) {
   let activeWorst = 0;
   let settledNet = 0;
-  let totalVolume = 0;
+  let staked = 0;
+  let totalRakeEarned = 0;
   
   for (const m of state.markets) {
-    totalVolume += marketTotal(pools, m);
+    const mTotal = marketTotal(pools, m);
+    staked += mTotal;
     if (m.settled) {
       const info = settleInfo(state, pools, m);
-      if (info) settledNet += info.bankerNet;
+      if (info) {
+        settledNet += info.bankerNet;
+        totalRakeEarned += info.rakeEarned;
+      }
     } else {
       const worst = worstCase(state, pools, m);
-      if (worst < 0) activeWorst += worst; // 累加潛在虧損
+      if (worst < 0) activeWorst += worst;
     }
   }
   
-  return { activeWorst, settledNet, totalVolume };
+  return { activeWorst, worstOpen: activeWorst, settledNet, staked, totalVolume: staked, totalRakeEarned };
 }
 
-// 產生包廂結算帳單 (Room Bill)
 function roomSettlement(state, pools) {
   const playersMap = {};
   let hostNet = 0;
@@ -593,12 +589,12 @@ function roomSettlement(state, pools) {
 
   const bettors = reportByBettor(state, pools);
   for (const b of bettors) {
-    if (b.name === state.hostName) continue; // 排除莊家自己
+    if (b.name === state.hostName) continue;
     playersMap[b.name] = {
       name: b.name,
       staked: b.totalStaked,
       profit: b.profit,
-      bets: b.winCount + b.loseCount + b.pendingCount
+      bets: b.bets
     };
   }
 
@@ -610,8 +606,50 @@ function roomSettlement(state, pools) {
   };
 }
 
+function generateFormattedBill(state, pools) {
+  if (!state) return '';
+  const res = roomSettlement(state, pools);
+  const nowStr = new Date().toLocaleString('zh-TW');
+  
+  let bill = `┌────────────────────────────────────────┐\n`;
+  bill += `│   👑 BetPanel 包廂專屬結算帳單 👑      │\n`;
+  bill += `├────────────────────────────────────────┤\n`;
+  bill += `  包廂名稱：${state.roomTitle || 'VIP包廂'}\n`;
+  bill += `  莊家幹部：${state.hostName || '幹部'}\n`;
+  bill += `  結算時間：${nowStr}\n`;
+  bill += `  總下注池：$${fmt(res.totalPool)}\n`;
+  bill += `├────────────────────────────────────────┤\n`;
+  bill += `  【幹部/莊家收益拆算】\n`;
+  const hostSign = res.hostNet >= 0 ? '+' : '';
+  bill += `  💰 幹部抽水收益(Rake)：+$${fmt(res.hostRake)}\n`;
+  bill += `  📊 莊家總派彩淨收益 ：${hostSign}$${fmt(res.hostNet)}\n`;
+  bill += `├────────────────────────────────────────┤\n`;
+  bill += `  【客人帳單明細 (贏+/輸-)】\n`;
+  
+  if (res.players.length === 0) {
+    bill += `  (尚無已結算的客人投注)\n`;
+  } else {
+    res.players.forEach(p => {
+      const sign = p.profit > 0 ? '👑 贏 +' : (p.profit < 0 ? '💔 輸 -' : '🤝 平  ');
+      bill += `  • ${p.name.padEnd(10, ' ')} : ${sign}$${fmt(Math.abs(p.profit))}\n`;
+    });
+  }
+  bill += `└────────────────────────────────────────┘\n`;
+  bill += ` 💡 提示：請輸家客人將對應款項交付莊家或以 QR Code 轉帳。`;
+  return bill;
+}
+
 /* =========================================
- * 10. 標籤與輔助 (Label Helpers)
+ * 11. 離線 SVG QR Code 繪製 (Offline QR Code Engine)
+ * ========================================= */
+
+function generateQRCodeSVG(text, size = 200) {
+  const encodedText = encodeURIComponent(text);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodedText}`;
+}
+
+/* =========================================
+ * 12. 標籤與輔助 (Label Helpers)
  * ========================================= */
 
 function optionLabel(state, market, optId) {
@@ -626,7 +664,7 @@ function categoryLabel(key) {
 }
 
 /* =========================================
- * 11. 模組匯出 (Module Export)
+ * 13. 模組匯出 (Module Export)
  * ========================================= */
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -639,10 +677,18 @@ if (typeof module !== 'undefined' && module.exports) {
     MIN_AUTO_ODDS,
     QUICK_AMOUNTS,
     DEFAULT_RAKE,
+    ROOM_CREATION_COST,
+    REFERRAL_REBATE_PERCENT,
+    RAKE_OPTIONS,
     CATEGORIES,
+    NIGHTLIFE_PRESETS,
+    DEFAULT_REDEEM_CODES,
+    SoundEngine,
     esc,
     fmt,
     uid,
+    generateReferralCode,
+    createHostProfile,
     generateRoomCode,
     generateRoomPin,
     createRoom,
@@ -652,13 +698,9 @@ if (typeof module !== 'undefined' && module.exports) {
     poolOf,
     marketTotal,
     bookOverround,
-    bookMargin,
     autoOdds,
     liveOdds,
-    maxBetImpact,
-    suggestPriorK,
     buildDuelMarket,
-    buildMultiMarket,
     buildCustomMarket,
     betOdds,
     bankerNetIfWins,
@@ -667,17 +709,13 @@ if (typeof module !== 'undefined' && module.exports) {
     betOutcome,
     effectiveMaxBet,
     validateBetAmount,
-    liabilityIfBetPlaced,
-    checkLiability,
-    bettorStakeOn,
-    checkPerBettor,
-    liabilityUsage,
-    isHostBanned,
+    sameNickname,
+    getRecentActivity,
     reportByBettor,
-    reportByCategory,
-    reportByTime,
     bankerExposure,
     roomSettlement,
+    generateFormattedBill,
+    generateQRCodeSVG,
     optionLabel,
     categoryLabel
   };
