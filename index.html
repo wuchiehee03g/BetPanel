@@ -88,7 +88,7 @@
                 </div>
                 <div class="stat-box">
                     <div class="stat-label">總彩池金額</div>
-                    <div class="stat-value font-mono text-gold" id="roomTotalPool">0</div>
+                    <div class="stat-value font-mono text-gold" id="roomTotalPool">$0</div>
                 </div>
             </section>
 
@@ -197,17 +197,12 @@
             
             // Monitor Connection
             db.ref('.info/connected').on('value', snap => {
-                const connDot = document.querySelector('.conn-dot');
                 const connStatus = document.getElementById('connStatus');
                 if (snap.val() === true) {
                     firebaseReady = true;
-                    connDot.style.background = 'var(--success)';
-                    connDot.style.boxShadow = '0 0 8px var(--success)';
                     connStatus.innerHTML = '<span class="conn-dot" style="background: var(--success); box-shadow: 0 0 8px var(--success);"></span> 已連線';
                 } else {
                     firebaseReady = false;
-                    connDot.style.background = 'var(--danger)';
-                    connDot.style.boxShadow = '0 0 8px var(--danger)';
                     connStatus.innerHTML = '<span class="conn-dot" style="background: var(--danger); box-shadow: 0 0 8px var(--danger);"></span> 連線中斷';
                 }
             });
@@ -220,10 +215,8 @@
             const urlRoom = urlParams.get('room');
             if (urlRoom) {
                 joinRoom(urlRoom);
-                // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-                // Check local storage for room
                 const savedRoom = localStorage.getItem(ROOM_KEY);
                 if (savedRoom) {
                     joinRoom(savedRoom);
@@ -264,7 +257,6 @@
         function joinRoom(roomCode) {
             roomCode = roomCode.toUpperCase();
             
-            // Unsubscribe from old room if any
             if (currentRoom) {
                 db.ref(`betpanel/rooms/${currentRoom}`).off('value');
             }
@@ -283,8 +275,8 @@
                 }
                 
                 let rawState = snap.val();
-                state = AppEngine.normalizeState(rawState);
-                pools = AppEngine.buildPools(state.markets, state.bets);
+                state = normalize(rawState);
+                pools = buildPools(state);
                 
                 if (document.getElementById('roomEntrySection').style.display !== 'none') {
                     showMainApp();
@@ -347,40 +339,58 @@
         }
 
         function renderSummary() {
-            // Room Stats
             let openMarkets = 0;
             let totalPool = 0;
             
             if (state.markets) {
-                Object.values(state.markets).forEach(m => {
-                    if (m.status === 'open') openMarkets++;
+                state.markets.forEach(m => {
+                    if (!m.locked && !m.settled) openMarkets++;
                 });
             }
             
-            Object.values(pools).forEach(p => {
-                totalPool += p.total;
+            state.markets.forEach(m => {
+                totalPool += marketTotal(pools, m);
             });
             
             document.getElementById('roomOpenMarkets').textContent = openMarkets;
-            document.getElementById('roomTotalPool').textContent = AppEngine.formatCurrency(totalPool);
+            document.getElementById('roomTotalPool').textContent = '$' + fmt(totalPool);
             
             // Personal Stats
-            const report = AppEngine.generateBettorReport(state.markets, state.bets, me.id);
-            document.getElementById('myBetCount').textContent = report.betCount;
-            document.getElementById('myTotalStaked').textContent = AppEngine.formatCurrency(report.totalStaked);
+            let myBetCount = 0;
+            let myTotalStaked = 0;
+            let mySettledPnL = 0;
+            let myPendingAmount = 0;
+            
+            state.bets.forEach(b => {
+                const isMe = b.bettorId === me.id || (me.name && sameNickname(b.name, me.name));
+                if (isMe) {
+                    myBetCount++;
+                    myTotalStaked += b.amount;
+                    
+                    const outcome = betOutcome(state, pools, b);
+                    if (outcome.status === 'pending') {
+                        myPendingAmount += b.amount;
+                    } else if (outcome.status === 'win' || outcome.status === 'lose') {
+                        mySettledPnL += outcome.profit;
+                    }
+                }
+            });
+            
+            document.getElementById('myBetCount').textContent = myBetCount;
+            document.getElementById('myTotalStaked').textContent = '$' + fmt(myTotalStaked);
             
             const pnlEl = document.getElementById('mySettledPnL');
-            pnlEl.textContent = (report.settledPnL > 0 ? '+' : '') + AppEngine.formatCurrency(report.settledPnL);
-            pnlEl.className = 'stat-value ' + (report.settledPnL > 0 ? 'text-success' : (report.settledPnL < 0 ? 'text-danger' : ''));
+            pnlEl.textContent = (mySettledPnL > 0 ? '+' : '') + '$' + fmt(mySettledPnL);
+            pnlEl.style.color = mySettledPnL > 0 ? 'var(--success)' : (mySettledPnL < 0 ? 'var(--danger)' : 'var(--text)');
             
-            document.getElementById('myPendingAmount').textContent = AppEngine.formatCurrency(report.pendingAmount);
+            document.getElementById('myPendingAmount').textContent = '$' + fmt(myPendingAmount);
         }
 
         function renderMarkets() {
             const listEl = document.getElementById('marketList');
             const noMsg = document.getElementById('noMarketsMsg');
             
-            if (!state.markets || Object.keys(state.markets).length === 0) {
+            if (!state.markets || state.markets.length === 0) {
                 listEl.innerHTML = '';
                 noMsg.style.display = 'block';
                 return;
@@ -388,13 +398,11 @@
             
             noMsg.style.display = 'none';
             
-            // Sort markets: Open first, then locked, then settled. Newest first within status.
-            const marketArr = Object.values(state.markets).sort((a, b) => {
-                const statusOrder = { 'open': 1, 'locked': 2, 'settled': 3, 'cancelled': 4 };
-                if (statusOrder[a.status] !== statusOrder[b.status]) {
-                    return statusOrder[a.status] - statusOrder[b.status];
-                }
-                return b.createdAt - a.createdAt;
+            const marketArr = [...state.markets].sort((a, b) => {
+                const statusA = a.settled ? 3 : (a.locked ? 2 : 1);
+                const statusB = b.settled ? 3 : (b.locked ? 2 : 1);
+                if (statusA !== statusB) return statusA - statusB;
+                return (b.createdAt || 0) - (a.createdAt || 0);
             });
             
             let html = '';
@@ -406,53 +414,51 @@
         }
 
         function renderMarketCard(m) {
-            const poolInfo = pools[m.id] || { total: 0, byOption: {} };
-            const isSettled = m.status === 'settled';
-            const isLocked = m.status === 'locked';
-            const isOpen = m.status === 'open';
+            const totalPool = marketTotal(pools, m);
+            const isSettled = !!m.settled;
+            const isLocked = !!m.locked;
+            const isOpen = !isSettled && !isLocked;
             
             let statusBadge = '';
-            if (isOpen) statusBadge = '<span class="badge badge-success">開放投注</span>';
-            else if (isLocked) statusBadge = '<span class="badge badge-warning">已鎖定</span>';
-            else if (isSettled) statusBadge = '<span class="badge badge-dim">已結算</span>';
-            else if (m.status === 'cancelled') statusBadge = '<span class="badge badge-danger">已取消</span>';
+            if (isOpen) statusBadge = '<span class="badge badge-success" style="background:rgba(0,255,136,0.15); color:#00ff88; padding:3px 8px; border-radius:4px; font-size:12px;">開放投注</span>';
+            else if (isLocked) statusBadge = '<span class="badge badge-warning" style="background:rgba(255,204,0,0.15); color:#ffcc00; padding:3px 8px; border-radius:4px; font-size:12px;">已鎖定</span>';
+            else if (isSettled) statusBadge = '<span class="badge badge-dim" style="background:rgba(255,255,255,0.1); color:#aaa; padding:3px 8px; border-radius:4px; font-size:12px;">已結算</span>';
             
             let html = `
-                <div class="card market-card mb-4 ${isSettled ? 'settled-card' : ''}" id="market-${m.id}">
-                    <div class="market-header d-flex justify-content-between align-items-start mb-3">
+                <div class="card market-card mb-4 ${isSettled ? 'settled-card' : ''}" id="market-${m.id}" style="background:#13131c; border:1px solid #222; border-radius:8px; padding:15px; margin-bottom:15px;">
+                    <div class="market-header d-flex justify-content-between align-items-start mb-3" style="display:flex; justify-content:space-between;">
                         <div>
-                            <h3 class="market-title m-0">${AppEngine.esc(m.title)}</h3>
-                            ${m.description ? `<p class="text-sm text-dim mt-1 mb-0">${AppEngine.esc(m.description)}</p>` : ''}
+                            <h3 class="market-title m-0" style="font-size:18px; margin:0;">${esc(m.title)}</h3>
+                            ${m.desc ? `<p class="text-sm text-dim mt-1 mb-0" style="font-size:12px; color:#aaa; margin-top:4px;">${esc(m.desc)}</p>` : ''}
                         </div>
-                        <div class="text-right">
+                        <div class="text-right" style="text-align:right;">
                             ${statusBadge}
-                            ${m.rakePercent > 0 ? `<div class="text-xs text-dim mt-1">莊家抽水: ${m.rakePercent}%</div>` : ''}
+                            ${m.rake > 0 ? `<div class="text-xs text-dim mt-1" style="font-size:11px; color:#888;">抽水: ${m.rake}%</div>` : ''}
                         </div>
                     </div>
                     
                     <div class="market-options mb-3">
             `;
             
-            // Render Options
-            m.options.forEach((opt, idx) => {
-                const optId = String(idx);
-                const isWinner = isSettled && String(m.resultOption) === optId;
-                const poolAmt = poolInfo.byOption[optId] || 0;
-                const poolPercent = poolInfo.total > 0 ? (poolAmt / poolInfo.total) * 100 : 0;
+            m.options.forEach((opt) => {
+                const isWinner = isSettled && m.winnerId === opt.id;
+                const poolAmt = poolOf(pools, m.id, opt.id);
+                const poolPercent = totalPool > 0 ? (poolAmt / totalPool) * 100 : 0;
                 
-                // Calculate current live odds
-                const odds = AppEngine.calcOdds(poolAmt, poolInfo.total, m.priorK);
+                const oddsObj = liveOdds(pools, m, opt.id);
+                const oddsVal = oddsObj.value.toFixed(2);
                 
                 html += `
-                    <div class="option-row ${isWinner ? 'winner' : ''} mb-2 p-2" style="border: 1px solid var(--border); border-radius: var(--radius); position: relative; overflow: hidden;">
-                        <!-- Progress bar background -->
-                        <div style="position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); width: ${poolPercent}%; opacity: 0.5; transition: width 0.3s;"></div>
+                    <div class="option-row ${isWinner ? 'winner' : ''} mb-2 p-2" style="border: 1px solid ${isWinner ? '#00ff88' : '#2a2a38'}; border-radius: 6px; position: relative; overflow: hidden; margin-bottom:8px; padding:10px; background:#1a1a26;">
+                        <div style="position: absolute; left: 0; bottom: 0; height: 3px; background: #00f0ff; width: ${poolPercent}%; opacity: 0.5; transition: width 0.3s;"></div>
                         
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="font-weight-bold" style="font-size: 1.1rem; z-index: 1;">${AppEngine.esc(opt)} ${isWinner ? '👑' : ''}</div>
-                            <div class="d-flex align-items-center" style="z-index: 1;">
-                                <div class="text-xs text-dim mr-3">池: $${AppEngine.formatCurrency(poolAmt)}</div>
-                                <div class="font-mono text-gold font-weight-bold" style="font-size: 1.5rem; min-width: 60px; text-align: right;">x${odds.toFixed(2)}</div>
+                        <div class="d-flex justify-content-between align-items-center" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div class="font-weight-bold" style="font-size: 1.1rem; font-weight:bold; color:#fff;">
+                                ${esc(opt.label)} ${isWinner ? '👑 獲勝' : ''}
+                            </div>
+                            <div class="text-right" style="text-align:right;">
+                                <div class="font-mono text-gold" style="font-size: 1.3rem; font-weight: bold; color: #ffd700;">x${oddsVal}</div>
+                                <div class="text-xs text-dim" style="font-size:11px; color:#aaa;">池: $${fmt(poolAmt)}</div>
                             </div>
                         </div>
                     </div>
@@ -461,45 +467,29 @@
             
             html += `</div>`;
             
-            // Render Betting Form if open
             if (isOpen) {
-                const draftAmt = draftAmounts[m.id] || '';
-                
+                const currentDraft = draftAmounts[m.id] || '';
                 html += `
-                    <div class="bet-form-container p-3 mt-3" style="background: var(--bg-darker); border-radius: var(--radius);">
-                        <div class="d-flex mb-2">
-                            <select id="sel-${m.id}" class="flex-1 mr-2 p-2" style="background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius);">
-                                <option value="" disabled selected>選擇選項...</option>
-                                ${m.options.map((opt, idx) => `<option value="${idx}">${AppEngine.esc(opt)}</option>`).join('')}
+                    <div class="bet-form-container pt-2" style="border-top: 1px solid #222; padding-top:10px;">
+                        <div class="form-group mb-2">
+                            <label style="font-size:12px; color:#aaa; display:block; margin-bottom:4px;">選擇投注選項</label>
+                            <select id="sel-${m.id}" class="form-control mb-2" style="width:100%; padding:8px; background:#0b0b10; color:#fff; border:1px solid #333; border-radius:4px;">
+                                <option value="">-- 請選擇 --</option>
+                                ${m.options.map(opt => `<option value="${opt.id}">${esc(opt.label)} (目前 x${liveOdds(pools, m, opt.id).value.toFixed(2)})</option>`).join('')}
                             </select>
-                            <div class="input-group m-0" style="flex: 2;">
-                                <input type="number" id="amt-${m.id}" class="text-right font-mono" placeholder="金額..." value="${draftAmt}" oninput="updateDraft('${m.id}', this.value)">
-                            </div>
                         </div>
                         
-                        <div class="d-flex justify-content-between mb-3 quick-btns gap-2">
-                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 500)">+500</button>
-                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 1000)">+1K</button>
-                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 5000)">+5K</button>
-                            <button class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', 10000)">+10K</button>
-                            <button class="btn btn-sm btn-danger flex-1" onclick="setAmount('${m.id}', 99999)">ALL</button>
+                        <div class="form-group mb-2">
+                            <label style="font-size:12px; color:#aaa; display:block; margin-bottom:4px;">下注金額</label>
+                            <input type="number" id="amt-${m.id}" class="form-control mb-2" placeholder="輸入金額..." value="${currentDraft}" oninput="draftAmounts['${m.id}'] = this.value" style="width:100%; padding:8px; background:#0b0b10; color:#fff; border:1px solid #333; border-radius:4px;">
                         </div>
                         
-                        <button class="btn btn-primary w-100 font-weight-bold" onclick="placeBet('${m.id}')">確認下注</button>
-                    </div>
-                `;
-            } else if (isSettled) {
-                // Show settled stats summary
-                const rakeAmt = poolInfo.total * (m.rakePercent / 100);
-                const winPool = poolInfo.byOption[String(m.resultOption)] || 0;
-                
-                html += `
-                    <div class="text-sm text-dim mt-2 p-2" style="background: var(--bg-darker); border-radius: var(--radius);">
-                        <div class="d-flex justify-content-between"><span>總彩池:</span> <span class="font-mono text-gold">$${AppEngine.formatCurrency(poolInfo.total)}</span></div>
-                        ${m.rakePercent > 0 ? `<div class="d-flex justify-content-between"><span>莊家抽水 (${m.rakePercent}%):</span> <span class="font-mono text-danger">-$${AppEngine.formatCurrency(rakeAmt)}</span></div>` : ''}
-                        <div class="d-flex justify-content-between mt-1 pt-1" style="border-top: 1px dashed var(--border);">
-                            <span>獲勝方總下注:</span> <span>$${AppEngine.formatCurrency(winPool)}</span>
+                        <div class="quick-amounts d-flex gap-1 mb-3" style="display:flex; gap:6px; margin-bottom:10px;">
+                            ${QUICK_AMOUNTS.map(amt => `<button type="button" class="btn btn-sm btn-outline flex-1" onclick="addAmount('${m.id}', ${amt})" style="flex:1; padding:6px 0; background:#222; border:1px solid #444; color:#fff; border-radius:4px; font-size:12px;">+${amt}</button>`).join('')}
+                            <button type="button" class="btn btn-sm btn-outline flex-1 text-danger" onclick="setAmount('${m.id}', 5000)" style="flex:1; padding:6px 0; background:#331111; border:1px solid #ff3366; color:#ff3366; border-radius:4px; font-size:12px;">$5000</button>
                         </div>
+                        
+                        <button class="btn btn-primary w-100 py-2" onclick="placeBet('${m.id}')" style="width:100%; padding:10px; background:linear-gradient(135deg, #ffd700, #ffaa00); color:#000; font-weight:bold; border:none; border-radius:4px; cursor:pointer;">確認下注</button>
                     </div>
                 `;
             }
@@ -512,14 +502,7 @@
             const tbody = document.getElementById('myBetsTableBody');
             const noMsg = document.getElementById('noBetsMsg');
             
-            if (!state.bets || state.bets.length === 0) {
-                tbody.innerHTML = '';
-                noMsg.style.display = 'block';
-                return;
-            }
-            
-            // Filter my bets and sort newest first
-            const myBets = state.bets.filter(b => b.bettorId === me.id).sort((a, b) => b.timestamp - a.timestamp);
+            const myBets = state.bets.filter(b => b.bettorId === me.id || (me.name && sameNickname(b.name, me.name)));
             
             if (myBets.length === 0) {
                 tbody.innerHTML = '';
@@ -528,55 +511,50 @@
             }
             
             noMsg.style.display = 'none';
-            let html = '';
             
-            myBets.forEach(b => {
-                const m = state.markets[b.marketId];
-                if (!m) return;
+            let html = '';
+            myBets.reverse().forEach(b => {
+                const m = state.markets.find(x => x.id === b.marketId);
+                const mTitle = m ? m.title : '未知盤口';
                 
-                const optName = m.options[b.optionId] || `Option ${b.optionId}`;
-                const mName = m.title;
-                const timeStr = new Date(b.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
+                const opt = m ? m.options.find(o => o.id === b.optionId) : null;
+                const optLabel = opt ? opt.label : b.optionId;
                 
-                let statusStr = '進行中';
-                let statusClass = 'text-dim';
-                let pnlStr = '-';
+                const outcome = betOutcome(state, pools, b);
                 
-                if (m.status === 'cancelled') {
-                    statusStr = '已退回';
-                    pnlStr = '0';
-                } else if (m.status === 'settled') {
-                    if (String(m.resultOption) === String(b.optionId)) {
-                        statusStr = '贏';
-                        statusClass = 'text-success font-weight-bold';
-                        const winAmt = (b.amount * b.oddsAtBet) - b.amount;
-                        pnlStr = '+' + AppEngine.formatCurrency(winAmt);
-                    } else {
-                        statusStr = '輸';
-                        statusClass = 'text-danger';
-                        pnlStr = '-' + AppEngine.formatCurrency(b.amount);
-                    }
+                let statusBadge = '';
+                let pnlStr = '$0';
+                let pnlClass = '';
+                
+                if (outcome.status === 'pending') {
+                    statusBadge = '<span style="color:#ffcc00;">待開</span>';
+                    pnlStr = '-';
+                } else if (outcome.status === 'win') {
+                    statusBadge = '<span style="color:#00ff88; font-weight:bold;">中獎</span>';
+                    pnlStr = '+' + fmt(outcome.profit);
+                    pnlClass = 'color:#00ff88; font-weight:bold;';
+                } else if (outcome.status === 'lose') {
+                    statusBadge = '<span style="color:#888;">未中</span>';
+                    pnlStr = '-' + fmt(b.amount);
+                    pnlClass = 'color:#ff3366;';
                 }
                 
+                const timeStr = new Date(b.ts || Date.now()).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+                
                 html += `
-                    <tr>
-                        <td class="text-xs text-dim">${timeStr}</td>
-                        <td class="text-sm truncate" style="max-width: 100px;">${AppEngine.esc(mName)}</td>
-                        <td class="text-sm text-accent">${AppEngine.esc(optName)}</td>
-                        <td class="text-right font-mono">$${AppEngine.formatCurrency(b.amount)}</td>
-                        <td class="text-right font-mono text-gold">x${b.oddsAtBet.toFixed(2)}</td>
-                        <td class="text-center ${statusClass}">${statusStr}</td>
-                        <td class="text-right font-mono ${pnlStr.startsWith('+') ? 'text-success' : (pnlStr.startsWith('-') && pnlStr !== '-' ? 'text-danger' : '')}">${pnlStr}</td>
+                    <tr style="border-bottom:1px solid #222;">
+                        <td style="padding:8px; font-size:12px; color:#888;">${timeStr}</td>
+                        <td style="padding:8px; font-size:13px;">${esc(mTitle)}</td>
+                        <td style="padding:8px; font-size:13px; color:#00f0ff;">${esc(optLabel)}</td>
+                        <td style="padding:8px; font-size:13px; text-align:right;">$${fmt(b.amount)}</td>
+                        <td style="padding:8px; font-size:13px; text-align:right; color:#ffd700;">x${betOdds(b).toFixed(2)}</td>
+                        <td style="padding:8px; font-size:13px; text-align:center;">${statusBadge}</td>
+                        <td style="padding:8px; font-size:13px; text-align:right; ${pnlClass}">$${pnlStr}</td>
                     </tr>
                 `;
             });
             
             tbody.innerHTML = html;
-        }
-
-        // --- Bet Actions ---
-        function updateDraft(marketId, val) {
-            draftAmounts[marketId] = val;
         }
 
         function addAmount(marketId, amt) {
@@ -610,7 +588,7 @@
             const amtEl = document.getElementById(`amt-${marketId}`);
             
             const optionId = selEl.value;
-            if (optionId === "") {
+            if (!optionId) {
                 showToast('請選擇投注選項', 'warning');
                 return;
             }
@@ -621,59 +599,53 @@
                 return;
             }
             
-            const m = state.markets[marketId];
+            const m = state.markets.find(x => x.id === marketId);
             if (!m) return;
             
-            if (m.status !== 'open') {
+            if (m.locked || m.settled) {
                 showToast('盤口已關閉或結算', 'error');
                 return;
             }
 
-            // Anti-race condition: read fresh state from DB before pushing
             try {
                 const freshSnap = await db.ref(`betpanel/rooms/${currentRoom}`).once('value');
                 const freshRaw = freshSnap.val();
                 if (!freshRaw) throw new Error("Room data missing");
                 
-                const freshState = AppEngine.normalizeState(freshRaw);
-                const freshM = freshState.markets[marketId];
+                const freshState = normalize(freshRaw);
+                const freshM = freshState.markets.find(x => x.id === marketId);
                 
-                if (!freshM || freshM.status !== 'open') {
-                    showToast('下注失敗：盤口已關閉', 'error');
+                if (!freshM || freshM.locked || freshM.settled) {
+                    showToast('下注失敗：盤口已關閉或結算', 'error');
                     return;
                 }
                 
-                // Validate bet using AppEngine
-                const validation = AppEngine.validateBet(freshState, marketId, me.id, amount);
-                if (!validation.valid) {
-                    showToast(validation.reason, 'error');
+                // Validate amount
+                const valRes = validateBetAmount(amount, effectiveMaxBet(freshState, freshM));
+                if (!valRes.ok) {
+                    showToast(valRes.reason, 'error');
                     return;
                 }
                 
-                // Re-calc odds exactly at bet time
-                const freshPools = AppEngine.buildPools(freshState.markets, freshState.bets);
-                const poolInfo = freshPools[marketId] || { total: 0, byOption: {} };
-                const optPool = poolInfo.byOption[optionId] || 0;
-                const lockedOdds = AppEngine.calcOdds(optPool, poolInfo.total, freshM.priorK);
+                // Calculate odds at bet time
+                const freshPools = buildPools(freshState);
+                const oddsObj = liveOdds(freshPools, freshM, optionId);
+                const lockedOdds = oddsObj.value;
                 
-                // Create bet record
                 const newBet = {
-                    id: 'bet_' + Date.now() + '_' + Math.random().toString(36).substring(2,7),
                     marketId: marketId,
+                    optionId: optionId,
+                    name: me.name,
                     bettorId: me.id,
-                    bettorName: me.name,
-                    optionId: String(optionId),
                     amount: amount,
                     oddsAtBet: lockedOdds,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                    ts: firebase.database.ServerValue.TIMESTAMP
                 };
                 
-                // Push to Firebase
                 await db.ref(`betpanel/rooms/${currentRoom}/bets`).push(newBet);
                 
                 showToast(`投注成功! 鎖定賠率 x${lockedOdds.toFixed(2)}`, 'success');
                 
-                // Reset form
                 selEl.value = "";
                 amtEl.value = "";
                 draftAmounts[marketId] = "";
@@ -690,26 +662,21 @@
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
             toast.textContent = msg;
+            toast.style.background = type === 'error' ? '#ff3366' : (type === 'success' ? '#00ff88' : '#222');
+            toast.style.color = type === 'success' ? '#000' : '#fff';
+            toast.style.padding = '10px 15px';
+            toast.style.borderRadius = '6px';
+            toast.style.marginBottom = '8px';
+            toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
             
             container.appendChild(toast);
             
             setTimeout(() => {
-                toast.style.opacity = '1';
-                toast.style.transform = 'translateY(0)';
-            }, 10);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    if(toast.parentNode) toast.parentNode.removeChild(toast);
-                }, 300);
+                if(toast.parentNode) toast.parentNode.removeChild(toast);
             }, 3000);
         }
 
-        // Boot
         window.addEventListener('DOMContentLoaded', initApp);
-
     </script>
 </body>
 </html>

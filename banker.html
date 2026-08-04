@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BetPanel · 莫家後台</title>
+  <title>BetPanel · 莊家後台</title>
   <link rel="stylesheet" href="style.css">
   
   <!-- Firebase SDK -->
@@ -18,9 +18,9 @@
   <header class="board-header banker">
     <div class="title-block">
       <div class="eyebrow">BetPanel</div>
-      <h1>莫家<span class="accent-b">後台</span></h1>
+      <h1>莊家<span class="accent-b">後台</span></h1>
     </div>
-    <a class="head-link" id="playerLink" target="_blank">玄家頁 ↗</a>
+    <a class="head-link" id="playerLink" target="_blank">玩家頁 ↗</a>
   </header>
 
   <div id="connStatus" class="offline" style="display:none;">未連線</div>
@@ -30,7 +30,7 @@
     <div class="card">
       <h2 class="section-title">建立新包廂</h2>
       <div class="form-group">
-        <label>您的名稱 (莫家)</label>
+        <label>您的名稱 (莊家)</label>
         <input type="text" id="hostName" placeholder="例如：阿翔">
       </div>
       <div class="form-group">
@@ -77,7 +77,7 @@
         <div id="statTotalPool" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
       </div>
       <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #ffcc00;">
-        <div style="font-size:11px; color:#aaa;">莫家淨利(已結算)</div>
+        <div style="font-size:11px; color:#aaa;">莊家淨利(已結算)</div>
         <div id="statHostNet" style="font-size:18px; font-weight:bold; color:#fff;">$0</div>
       </div>
       <div class="stat-card" style="flex:1; min-width:120px; background:#1a1a24; padding:15px; border-radius:8px; text-align:center; border-top:2px solid #ff3366;">
@@ -98,58 +98,58 @@
     <div class="container">
       <div class="tabs" style="display:flex; border-bottom:1px solid #333; margin-bottom:20px;">
         <div class="tab active" data-target="tab-markets" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#00f0ff; border-bottom:2px solid #00f0ff;">盤口管理</div>
-        <div class="tab" data-target="tab-reports" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">報表</div>
-        <div class="tab" data-target="tab-settings" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">設定</div>
+        <div class="tab" data-target="tab-reports" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">報表與結算</div>
+        <div class="tab" data-target="tab-settings" style="flex:1; text-align:center; padding:10px; cursor:pointer; color:#888;">設定與維護</div>
       </div>
     </div>
 
-    <!-- TAB CONTENTS -->
+    <!-- TAB CONTENT: MARKETS -->
     <div class="container tab-content" id="tab-markets">
       
-      <!-- Create Market Panel -->
+      <!-- CREATE MARKET FORM -->
       <div class="card" style="margin-bottom:20px;">
         <h3 class="section-title">快速開盤</h3>
-        <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
-          <button class="btn btn-gold template-btn" data-type="1v1" style="flex:1; min-width:80px;">1v1 對決</button>
-          <button class="btn template-btn" data-type="multi" style="flex:1; min-width:80px;">多選一</button>
-          <button class="btn template-btn" data-type="custom" style="flex:1; min-width:80px;">自訂盤口</button>
+        
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <button class="btn btn-gold template-btn" data-type="1v1" style="flex:1;">1v1 對決</button>
+          <button class="btn template-btn" data-type="multi" style="flex:1;">多選一</button>
+          <button class="btn template-btn" data-type="custom" style="flex:1;">自訂盤口</button>
         </div>
         
         <div id="createMarketForm">
           <div class="form-group">
             <label>盤口標題</label>
-            <input type="text" id="marketTitle" placeholder="例如：阿翔 vs 小明">
+            <input type="text" id="marketTitle" placeholder="例如：張總 vs 李總 (吹牛對決)">
           </div>
           
-          <div id="optionsContainer">
-            <!-- 1v1 default options -->
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
-              <input type="text" class="opt-name" placeholder="選項A" style="flex:1;">
-              <input type="text" class="opt-name" placeholder="選項B" style="flex:1;">
+          <div class="form-group">
+            <label>盤口說明 (可選)</label>
+            <input type="text" id="marketDesc" placeholder="例如：輸的罰三杯酒">
+          </div>
+          
+          <div class="form-group">
+            <label>選項設定</label>
+            <div id="optionsContainer">
+              <!-- Dynamically populated -->
             </div>
+            <button class="btn" id="btnAddOption" style="display:none; margin-top:5px; width:100%;">+ 新增選項</button>
           </div>
-          <button class="btn" id="btnAddOption" style="display:none; width:100%; margin-bottom:15px; font-size:12px; padding:8px;">+ 新增選項</button>
           
-          <details style="margin-bottom:15px; font-size:13px; color:#aaa;">
-            <summary style="cursor:pointer; padding:5px 0;">進階設定 (可留空)</summary>
-            <div style="padding:10px; background:#1a1a24; border-radius:4px; margin-top:5px;">
+          <details style="margin-bottom:15px; color:#aaa; font-size:12px;">
+            <summary style="cursor:pointer;">高級設定 (抽水/賠率黏性)</summary>
+            <div style="padding-top:10px;">
               <div class="form-group">
-                <label>描述</label>
-                <input type="text" id="marketDesc" placeholder="說明文字...">
+                <label>獨立抽水率 (%)，留空預設跟隨包廂：</label>
+                <input type="number" id="marketRake" placeholder="如 5">
               </div>
               <div class="form-group">
-                <label>獨立抽水率 (%)</label>
-                <input type="number" id="marketRake" placeholder="預設跟隨包廂">
-              </div>
-              <div class="form-group">
-                <label>流動性參數 (PriorK)</label>
-                <input type="number" id="marketPriorK" placeholder="預設 5000">
-                <small>數值越大，賠率變動越慢</small>
+                <label>定價黏性 (priorK)，預設 5000：</label>
+                <input type="number" id="marketPriorK" value="5000">
               </div>
             </div>
           </details>
 
-          <button class="btn btn-gold" id="btnCreateMarket" style="width:100%;">開盤</button>
+          <button class="btn btn-gold" id="btnCreateMarket" style="width:100%;">確認開盤</button>
         </div>
       </div>
 
@@ -166,7 +166,7 @@
         <h3 class="section-title">包廂結算帳單</h3>
         <p style="font-size:12px; color:#aaa; margin-bottom:15px;">一鍵產生目前所有已結算盤口的總帳單。</p>
         <button class="btn btn-gold" id="btnGenerateBill" style="width:100%; margin-bottom:15px;">產生結算帳單</button>
-        <textarea id="billOutput" style="width:100%; height:150px; background:#111; color:#00f0ff; border:1px solid #333; border-radius:4px; padding:10px; font-family:monospace; display:none;" readonly></textarea>
+        <textarea id="billOutput" style="width:100%; height:180px; background:#111; color:#00f0ff; border:1px solid #333; border-radius:4px; padding:10px; font-family:monospace; display:none;" readonly></textarea>
       </div>
 
       <div class="card">
@@ -229,7 +229,7 @@
     }
 
     function generateCode(length=6) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let r = '';
       for(let i=0; i<length; i++) r += chars.charAt(Math.floor(Math.random() * chars.length));
       return r;
@@ -344,14 +344,12 @@
       });
 
       roomRef.on('value', snap => {
-        state = snap.val() || { config: {}, markets: {}, bets: {} };
-        if(!state.markets) state.markets = {};
-        if(!state.bets) state.bets = {};
+        const rawState = snap.val();
+        state = normalize(rawState);
+        pools = buildPools(state);
         
-        document.getElementById('infoHostName').textContent = escapeHtml(state.config.hostName || '未知');
-        document.getElementById('infoRake').textContent = state.config.rake || 0;
-        
-        pools = buildPools(state.bets);
+        document.getElementById('infoHostName').textContent = esc(state.hostName || '未知');
+        document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
         
         renderMarkets();
         updateStats();
@@ -361,16 +359,20 @@
 
     function checkOpenMarkets() {
       let openCount = 0;
-      for(let k in state.markets) {
-        if(!state.markets[k].locked) openCount++;
+      if(state && state.markets) {
+        state.markets.forEach(m => {
+          if(!m.locked && !m.settled) openCount++;
+        });
       }
       document.getElementById('openMarketsWarning').style.display = openCount > 0 ? 'block' : 'none';
     }
 
     document.getElementById('btnLockAll').addEventListener('click', () => {
       const updates = {};
-      for(let k in state.markets) {
-        if(!state.markets[k].locked) updates['markets/'+k+'/locked'] = true;
+      if(state && state.markets) {
+        state.markets.forEach(m => {
+          if(!m.locked && !m.settled) updates['markets/'+m.id+'/locked'] = true;
+        });
       }
       if(Object.keys(updates).length > 0) {
         roomRef.update(updates).then(() => showToast('已全部封盤'));
@@ -464,26 +466,27 @@
       const names = Array.from(document.querySelectorAll('.opt-name')).map(el => el.value.trim()).filter(x => x);
       if(names.length < 2) return showToast('至少需要兩個選項', true);
       
-      let opts = [];
+      let optsObj = {};
       if(currentTemplate === 'custom') {
         const oddsInputs = Array.from(document.querySelectorAll('.opt-odds'));
-        opts = names.map((n, i) => {
+        names.forEach((n, i) => {
           let o = parseFloat(oddsInputs[i].value);
-          if(isNaN(o) || o <= 1) o = null;
-          return { id: 'opt_'+i, label: n, fixedOdds: o };
+          optsObj['opt_' + i] = { label: n, order: i, odds: (!isNaN(o) && o > 1) ? o : 2.0 };
         });
       } else {
-        opts = names.map((n, i) => ({ id: 'opt_'+i, label: n }));
+        names.forEach((n, i) => {
+          optsObj['opt_' + i] = { label: n, order: i, odds: 2.0 };
+        });
       }
       
       const marketId = 'm_' + Date.now();
-      const rake = customRake !== '' ? parseInt(customRake) : (state.config.rake || 5);
+      const rake = customRake !== '' ? parseInt(customRake) : (state.rakePercent * 100);
       
       const market = {
         title: title,
         desc: desc,
         category: currentTemplate,
-        options: opts,
+        options: optsObj,
         rake: rake,
         priorK: parseInt(priorK),
         locked: false,
@@ -502,21 +505,24 @@
       const container = document.getElementById('marketListContainer');
       container.innerHTML = '';
       
-      const ms = state.markets || {};
-      const mkts = Object.keys(ms).map(k => ({id:k, ...ms[k]})).sort((a,b) => b.createdAt - a.createdAt);
-      
-      if(mkts.length === 0) {
+      if(!state || !state.markets || state.markets.length === 0) {
         container.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">尚無盤口</div>';
         return;
       }
       
+      const mkts = [...state.markets].sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
       mkts.forEach(m => {
-        const p = pools[m.id] || {};
-        const totalP = marketTotal(m.id, pools) || 0;
+        const totalP = marketTotal(pools, m);
         
         const card = document.createElement('div');
         card.className = 'card';
         card.style.position = 'relative';
+        card.style.background = '#13131c';
+        card.style.border = '1px solid #222';
+        card.style.padding = '15px';
+        card.style.marginBottom = '15px';
+        card.style.borderRadius = '8px';
         
         let statusBadge = m.settled ? '<span style="background:#4CAF50; color:#fff; padding:2px 5px; border-radius:3px; font-size:11px;">已結算</span>' :
                           (m.locked ? '<span style="background:#f44336; color:#fff; padding:2px 5px; border-radius:3px; font-size:11px;">已封盤</span>' : 
@@ -525,38 +531,34 @@
         let html = `
           <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:10px;">
             <div>
-              <h4 style="margin:0; font-size:16px;">${escapeHtml(m.title)}</h4>
-              ${m.desc ? `<div style="font-size:12px; color:#aaa; margin-top:2px;">${escapeHtml(m.desc)}</div>` : ''}
+              <h4 style="margin:0; font-size:16px; color:#fff;">${esc(m.title)}</h4>
+              ${m.desc ? `<div style="font-size:12px; color:#aaa; margin-top:2px;">${esc(m.desc)}</div>` : ''}
             </div>
             <div>${statusBadge}</div>
           </div>
           <div style="font-size:12px; color:#aaa; margin-bottom:10px;">
-            總池: $${totalP.toFixed(0)} | 抽水: ${m.rake}% | PriorK: ${m.priorK || 5000}
+            總池: $${fmt(totalP)} | 抽水: ${m.rake || (state.rakePercent * 100)}% | PriorK: ${m.priorK || 5000}
           </div>
         `;
         
-        const info = m.settled ? settleInfo(m, state.bets) : null;
-        
         html += `<div style="background:#1a1a24; border-radius:4px; padding:10px; margin-bottom:15px;">`;
         m.options.forEach(opt => {
-          let cOdds = m.settled ? '-' : autoOdds(m, opt.id, pools).toFixed(2);
-          if(opt.fixedOdds) cOdds = opt.fixedOdds;
-          
-          let pAmt = p[opt.id] || 0;
-          let net = bankerNetIfWins(m.id, opt.id, m, state.bets);
+          let cOdds = m.settled ? '-' : liveOdds(pools, m, opt.id).value.toFixed(2);
+          let pAmt = poolOf(pools, m.id, opt.id);
+          let net = bankerNetIfWins(state, pools, m, opt.id);
           let netColor = net >= 0 ? '#4CAF50' : '#f44336';
           
           let isWinner = m.settled && m.winnerId === opt.id;
           let winStyle = isWinner ? 'border: 1px solid #ffcc00; background: rgba(255,204,0,0.1);' : '';
           
           html += `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #333; ${winStyle}">
-              <div style="flex:2; ${isWinner ? 'color:#ffcc00; font-weight:bold;' : ''}">
-                ${isWinner ? '👑 ' : ''}${escapeHtml(opt.label)}
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-bottom:1px solid #222; ${winStyle}">
+              <div style="flex:2; ${isWinner ? 'color:#ffcc00; font-weight:bold;' : 'color:#fff;'}">
+                ${isWinner ? '👑 ' : ''}${esc(opt.label)}
               </div>
               <div style="flex:1; text-align:center; font-family:monospace; color:#00f0ff;">x${cOdds}</div>
-              <div style="flex:1; text-align:right; font-size:12px;">$${pAmt}</div>
-              <div style="flex:1; text-align:right; font-size:12px; color:${netColor};">$${net.toFixed(0)}</div>
+              <div style="flex:1; text-align:right; font-size:12px; color:#aaa;">$${fmt(pAmt)}</div>
+              <div style="flex:1; text-align:right; font-size:12px; color:${netColor}; font-weight:bold;">$${fmt(net)}</div>
             </div>
           `;
         });
@@ -566,27 +568,26 @@
         
         if(!m.settled) {
           if(!m.locked) {
-            html += `<button class="btn btn-danger m-lock-btn" data-id="${m.id}" style="flex:1;">封盤</button>`;
+            html += `<button class="btn btn-danger m-lock-btn" data-id="${m.id}" style="flex:1; background:#ff3366; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">封盤</button>`;
           } else {
-            html += `<button class="btn m-unlock-btn" data-id="${m.id}" style="flex:1; background:#555;">解鎖</button>`;
-            html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1;">結算</button>`;
+            html += `<button class="btn m-unlock-btn" data-id="${m.id}" style="flex:1; background:#555; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">解鎖</button>`;
+            html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1; background:#ffd700; color:#000; font-weight:bold; border:none; padding:8px; border-radius:4px; cursor:pointer;">結算</button>`;
           }
         } else {
-          html += `<button class="btn m-unsettle-btn" data-id="${m.id}" style="flex:1; background:#555;">撤銷結算</button>`;
+          html += `<button class="btn m-unsettle-btn" data-id="${m.id}" style="flex:1; background:#555; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">撤銷結算</button>`;
         }
-        html += `<button class="btn m-del-btn" data-id="${m.id}" style="background:transparent; color:#ff3366; border:1px solid #ff3366;">刪除</button>`;
+        html += `<button class="btn m-del-btn" data-id="${m.id}" style="background:transparent; color:#ff3366; border:1px solid #ff3366; padding:8px; border-radius:4px; cursor:pointer;">刪除</button>`;
         
         html += `</div>`;
         
-        // Settle dropdown (hidden by default)
         if(m.locked && !m.settled) {
           html += `
-            <div id="settle-panel-${m.id}" style="display:none; margin-top:15px; padding:10px; background:#111; border:1px solid #ffcc00; border-radius:4px;">
+            <div id="settle-panel-${m.id}" style="display:none; margin-top:15px; padding:12px; background:#111; border:1px solid #ffcc00; border-radius:6px;">
               <h5 style="margin:0 0 10px 0; color:#ffcc00;">選擇獲勝選項：</h5>
-              <select id="settle-sel-${m.id}" style="width:100%; margin-bottom:10px;">
-                ${m.options.map(o => `<option value="${o.id}">${escapeHtml(o.label)}</option>`).join('')}
+              <select id="settle-sel-${m.id}" style="width:100%; margin-bottom:10px; padding:8px; background:#222; color:#fff; border:1px solid #444; border-radius:4px;">
+                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)}</option>`).join('')}
               </select>
-              <button class="btn btn-gold m-confirm-settle-btn" data-id="${m.id}" style="width:100%;">確認結算</button>
+              <button class="btn btn-gold m-confirm-settle-btn" data-id="${m.id}" style="width:100%; padding:10px; background:#ffd700; color:#000; font-weight:bold; border:none; border-radius:4px; cursor:pointer;">確認結算並派彩</button>
             </div>
           `;
         }
@@ -603,166 +604,83 @@
         roomRef.child('markets').child(e.target.dataset.id).child('locked').set(false);
       });
       document.querySelectorAll('.m-settle-btn').forEach(btn => btn.onclick = e => {
-        const p = document.getElementById('settle-panel-' + e.target.dataset.id);
-        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        const id = e.target.dataset.id;
+        const panel = document.getElementById('settle-panel-' + id);
+        if(panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       });
       document.querySelectorAll('.m-confirm-settle-btn').forEach(btn => btn.onclick = e => {
-        const mid = e.target.dataset.id;
-        const wid = document.getElementById('settle-sel-' + mid).value;
-        if(confirm('確定要結算此盤口？')) {
-          roomRef.child('markets').child(mid).update({
+        const id = e.target.dataset.id;
+        const winId = document.getElementById('settle-sel-' + id).value;
+        if(confirm('確定要宣佈此選項獲勝？結算後將按鎖定賠率派彩。')) {
+          roomRef.child('markets').child(id).update({
             settled: true,
-            winnerId: wid,
-            settledAt: Date.now()
-          }).then(() => showToast('結算成功'));
+            winnerId: winId
+          }).then(() => showToast('結算成功！'));
         }
       });
       document.querySelectorAll('.m-unsettle-btn').forEach(btn => btn.onclick = e => {
-        if(confirm('確定要撤銷結算？這會改變帳單。')) {
-          roomRef.child('markets').child(e.target.dataset.id).update({
+        const id = e.target.dataset.id;
+        if(confirm('確定撤銷結算？')) {
+          roomRef.child('markets').child(id).update({
             settled: false,
-            winnerId: null,
-            settledAt: null
-          }).then(() => showToast('撤銷成功'));
+            winnerId: null
+          });
         }
       });
       document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = e => {
-        if(confirm('注意：刪除盤口將同時刪除其所有下注紀錄且無法復原，確定？')) {
-          const mid = e.target.dataset.id;
-          const updates = {};
-          updates['markets/' + mid] = null;
-          // delete bets
-          for(let bid in state.bets) {
-            if(state.bets[bid].marketId === mid) updates['bets/' + bid] = null;
-          }
-          roomRef.update(updates).then(() => showToast('已刪除'));
+        const id = e.target.dataset.id;
+        if(confirm('確定要刪除此盤口？刪除後無法恢復。')) {
+          roomRef.child('markets').child(id).remove();
         }
       });
     }
 
     function updateStats() {
-      let totalPool = 0;
-      let hostNet = 0;
-      let worstRisk = 0;
-      
-      const ms = state.markets || {};
-      for(let mid in ms) {
-        const m = ms[mid];
-        totalPool += marketTotal(mid, pools);
-        
-        if(m.settled) {
-          const info = settleInfo(m, state.bets);
-          hostNet += info.bankerNet;
-        } else {
-          // calculate worst case risk
-          let wc = 0; // max loss for banker is the lowest net
-          m.options.forEach(opt => {
-            const net = bankerNetIfWins(mid, opt.id, m, state.bets);
-            if(net < wc) wc = net;
-          });
-          worstRisk += wc;
-        }
-      }
-      
-      document.getElementById('statTotalPool').textContent = '$' + totalPool.toFixed(0);
-      document.getElementById('statHostNet').textContent = '$' + hostNet.toFixed(0);
-      document.getElementById('statHostNet').style.color = hostNet >= 0 ? '#ffcc00' : '#ff3366';
-      
-      document.getElementById('statWorstRisk').textContent = '$' + worstRisk.toFixed(0);
+      const exp = bankerExposure(state, pools);
+      document.getElementById('statTotalPool').textContent = '$' + fmt(exp.staked);
+      document.getElementById('statHostNet').textContent = (exp.settledNet >= 0 ? '+' : '') + '$' + fmt(exp.settledNet);
+      document.getElementById('statWorstRisk').textContent = '$' + fmt(Math.abs(exp.worstOpen));
     }
 
     function renderReports() {
-      // Player Report
-      const pStats = {};
-      const bets = state.bets || {};
-      const ms = state.markets || {};
-      
-      for(let bid in bets) {
-        const b = bets[bid];
-        const m = ms[b.marketId];
-        if(!m) continue;
-        
-        if(!pStats[b.bettor]) pStats[b.bettor] = { name: b.bettor, count: 0, staked: 0, pnl: 0 };
-        const ps = pStats[b.bettor];
-        
-        ps.count++;
-        ps.staked += b.amount;
-        
-        if(m.settled) {
-          if(m.winnerId === b.optionId) {
-            ps.pnl += (b.amount * b.oddsAtBet) - b.amount;
-          } else {
-            ps.pnl -= b.amount;
-          }
-        }
-      }
-      
-      const arr = Object.values(pStats).sort((a,b) => b.staked - a.staked);
+      const pStats = reportByBettor(state, pools);
       const tbody = document.getElementById('playerReportBody');
       tbody.innerHTML = '';
       
-      arr.forEach(p => {
-        const color = p.pnl > 0 ? '#4CAF50' : (p.pnl < 0 ? '#f44336' : '#fff');
-        const sign = p.pnl > 0 ? '+' : '';
+      pStats.forEach(p => {
+        const pnl = -p.bankerNet;
+        const color = pnl > 0 ? '#4CAF50' : (pnl < 0 ? '#f44336' : '#fff');
+        const sign = pnl > 0 ? '+' : '';
         tbody.innerHTML += `
-          <tr style="border-bottom:1px solid #333;">
-            <td style="padding:8px;">${escapeHtml(p.name)}</td>
-            <td style="padding:8px; text-align:right;">${p.count}</td>
-            <td style="padding:8px; text-align:right;">$${p.staked.toFixed(0)}</td>
-            <td style="padding:8px; text-align:right; color:${color}; font-weight:bold;">${sign}$${p.pnl.toFixed(0)}</td>
+          <tr style="border-bottom:1px solid #222;">
+            <td style="padding:8px; color:#fff;">${esc(p.name)}</td>
+            <td style="padding:8px; text-align:right; color:#aaa;">${p.bets}</td>
+            <td style="padding:8px; text-align:right; color:#aaa;">$${fmt(p.staked)}</td>
+            <td style="padding:8px; text-align:right; color:${color}; font-weight:bold;">${sign}$${fmt(pnl)}</td>
           </tr>
         `;
       });
     }
 
     document.getElementById('btnGenerateBill').addEventListener('click', () => {
-      const ms = state.markets || {};
-      const bets = state.bets || {};
-      const settledMs = Object.keys(ms).filter(k => ms[k].settled).map(k => ms[k]);
+      if(!state || !state.markets) return showToast('無資料', true);
+      const res = roomSettlement(state, pools);
       
-      if(settledMs.length === 0) {
-        return showToast('目前沒有已結算的盤口', true);
-      }
-      
-      let hostRakeTotal = 0;
-      let hostNetTotal = 0;
-      const playerPnls = {};
-      
-      settledMs.forEach(m => {
-        const info = settleInfo(m, bets);
-        hostRakeTotal += info.rakeAmount;
-        hostNetTotal += info.bankerNet;
-        
-        for(let bid in bets) {
-          const b = bets[bid];
-          if(b.marketId === m.id) {
-            if(!playerPnls[b.bettor]) playerPnls[b.bettor] = 0;
-            if(b.optionId === m.winnerId) {
-              playerPnls[b.bettor] += (b.amount * b.oddsAtBet) - b.amount;
-            } else {
-              playerPnls[b.bettor] -= b.amount;
-            }
-          }
-        }
-      });
-      
-      let bill = `=== 包廂結算帳單 ===\n`;
+      let bill = `=== 【BetPanel 包廂結算帳單】 ===\n`;
       bill += `時間：${new Date().toLocaleString('zh-TW')}\n`;
-      bill += `已結算盤口數：${settledMs.length}\n`;
-      bill += `---------------------\n`;
-      bill += `【莫家 (莊家)】\n`;
-      bill += `抽水收益：$${hostRakeTotal.toFixed(0)}\n`;
-      bill += `總淨損益：$${hostNetTotal.toFixed(0)} (含水錢)\n`;
-      bill += `---------------------\n`;
-      bill += `【玄家 (玩家)】\n`;
+      bill += `總下注金額：$${fmt(res.totalPool)}\n`;
+      bill += `-----------------------------------\n`;
+      bill += `【莊家 (莫家)】\n`;
+      bill += `莊家淨收益：$${fmt(res.hostNet)}\n`;
+      bill += `-----------------------------------\n`;
+      bill += `【玩家帳單 (玄家)】\n`;
       
-      const pArr = Object.keys(playerPnls).map(k => ({name:k, pnl:playerPnls[k]})).sort((a,b) => b.pnl - a.pnl);
-      pArr.forEach(p => {
-        const sign = p.pnl > 0 ? '+' : '';
-        bill += `${p.name}：\t${sign}$${p.pnl.toFixed(0)}\n`;
+      res.players.forEach(p => {
+        const sign = p.profit > 0 ? '+' : '';
+        bill += `${p.name}：\t${sign}$${fmt(p.profit)}\n`;
       });
       
-      bill += `=====================\n`;
+      bill += `===================================\n`;
       
       const out = document.getElementById('billOutput');
       out.value = bill;
@@ -779,7 +697,6 @@
       }
     });
 
-    // On Load
     window.onload = initFirebase;
   </script>
 </body>
