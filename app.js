@@ -4,6 +4,13 @@
  * 包含：業務邏輯、賠率引擎、點數錢包、兌換碼儲值、推薦分潤模組、極簡帳單與 Web Audio 音效
  */
 
+const firebaseConfig = {
+  apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
+  authDomain: "dicebetpanel.firebaseapp.com",
+  databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dicebetpanel",
+};
+
 const DB_PATH = 'betpanel';
 const DEFAULT_ODDS = 2;
 const DEFAULT_PRIOR_K = 20000;
@@ -669,6 +676,7 @@ function categoryLabel(key) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    firebaseConfig,
     DB_PATH,
     DEFAULT_ODDS,
     DEFAULT_PRIOR_K,

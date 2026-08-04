@@ -325,6 +325,13 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script>
+    const cfg = typeof firebaseConfig !== 'undefined' ? firebaseConfig : {
+      apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
+      authDomain: "dicebetpanel.firebaseapp.com",
+      databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dicebetpanel",
+    };
+
     const ROOM_KEY = 'bp-host-room';
     const PIN_KEY = 'bp-host-pin';
     const HOST_ID_KEY = 'bp-host-id';
@@ -385,7 +392,7 @@
     async function initFirebase() {
       updateSoundButtonUI();
       if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(cfg);
       }
       db = firebase.database();
       await initHostProfile();
