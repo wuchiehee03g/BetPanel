@@ -247,6 +247,7 @@
         function showRoomEntry() {
             document.getElementById('roomEntrySection').style.display = 'block';
             document.getElementById('mainAppSection').style.display = 'none';
+            document.getElementById('roomCodeInput').value = '';
         }
 
         function showMainApp() {
@@ -257,7 +258,7 @@
         function joinRoom(roomCode) {
             roomCode = roomCode.toUpperCase();
             
-            if (currentRoom) {
+            if (currentRoom && currentRoom !== roomCode) {
                 db.ref(`betpanel/rooms/${currentRoom}`).off('value');
             }
             
@@ -278,14 +279,11 @@
                 state = normalize(rawState);
                 pools = buildPools(state);
                 
-                if (document.getElementById('roomEntrySection').style.display !== 'none') {
-                    showMainApp();
-                    showToast('成功加入包廂!', 'success');
-                }
-                
+                showMainApp();
                 renderAll();
             }, (error) => {
                 showToast(`連線錯誤: ${error.message}`, 'error');
+                showRoomEntry();
             });
         }
 
