@@ -94,8 +94,16 @@
 const DEMO_KEY = 'betpanel-demo-state-v1';
 const PRESETS = [
   {id:'dice',title:'骰子比大小',desc:'大、小、豹子',options:[['大 (11-17)',1.95],['小 (4-10)',1.95],['豹子 (三同數)',5]]},
-  {id:'duel',title:'吹牛對決',desc:'兩人對決',options:[['選手 A',2],['選手 B',2]]},
-  {id:'sing',title:'KTV 評分對決',desc:'是否突破 90 分',options:[['高分突破',2.1],['未達標準',1.75]]}
+  {id:'duel',title:'吹牛對決',desc:'兩人對決',options:[['選手 A',1.95],['選手 B',1.95]]},
+  {id:'sing',title:'KTV 評分對決',desc:'是否突破 90 分',options:[['高分突破',2.1],['未達標準',1.75]]},
+  {id:'rps',title:'猜拳三戰兩勝',desc:'預測最終勝者',options:[['選手 A',1.95],['選手 B',1.95]]},
+  {id:'card',title:'撲克牌紅黑',desc:'下一張牌的顏色',options:[['紅牌',1.9],['黑牌',1.9]]},
+  {id:'wheel',title:'幸運轉盤三色',desc:'轉盤停止時落在哪一區',options:[['藍區',2.85],['金區',2.85],['紫區',2.85]]},
+  {id:'digit',title:'尾數奇偶',desc:'抽籤號碼最後一位',options:[['奇數',1.95],['偶數',1.95]]},
+  {id:'song',title:'歌曲前奏猜猜看',desc:'下一首歌曲的類型',options:[['華語流行',2.85],['西洋流行',2.85],['經典老歌',2.85]]},
+  {id:'emoji',title:'表情符號盲抽',desc:'神秘表情是哪一種',options:[['笑臉',2.85],['愛心',2.85],['星星',2.85]]},
+  {id:'coin',title:'硬幣連續兩次',desc:'連續兩次是否同面',options:[['同面',1.9],['不同面',1.9]]},
+  {id:'king',title:'國王大冒險懲罰預測',desc:'預測抽中的挑戰類型',options:[['乾杯特調酒',3.8],['深情告白',3.8],['現場高歌',3.8],['伏地挺身',3.8]]}
 ];
 let state = load();
 let selected = null;
