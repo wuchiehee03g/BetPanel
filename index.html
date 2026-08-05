@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -266,7 +266,8 @@
                 localStorage.setItem(ID_KEY, me.id);
             } catch (authError) {
                 console.error(authError);
-                showToast('身份驗證失敗，請先在 Firebase 開啟 Anonymous 登入', 'error');
+                const authHint = authError && authError.code === 'auth/unauthorized-domain' ? '此網址尚未加入 Firebase 授權網域，請加入 wuchiehee03g.github.io' : '請確認 Firebase 已開啟 Anonymous 登入';
+                showToast('身份驗證失敗：' + (authError.code || 'unknown') + '。' + authHint, 'error');
                 return;
             }
             
