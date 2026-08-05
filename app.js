@@ -1,4 +1,4 @@
-﻿/**
+/**
  * BetPanel · 包廂熱場投注系統
  * 核心引擎 (Core Engine v3.0 - Commercial Edition)
  * 包含：業務邏輯、賠率引擎、點數錢包、兌換碼儲值、推薦分潤模組、極簡帳單與 Web Audio 音效
@@ -9,6 +9,8 @@ const firebaseConfig = {
   authDomain: "betpanel-249dc.firebaseapp.com",
   databaseURL: "https://betpanel-249dc-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "betpanel-249dc",
+  appId: "1:833468168241:web:f8267242dd2ab7c1277d10",
+  messagingSenderId: "833468168241",
 };
 
 const DB_PATH = 'betpanel';
