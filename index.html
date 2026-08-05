@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -14,6 +14,7 @@
     <!-- Firebase SDK compat -->
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     
     <!-- Core App Engine -->
     <script src="app.js"></script>
@@ -137,6 +138,22 @@
                         </div>
                     </div>
                     
+                    <!-- Public Room Ledger -->
+                    <div class="card mb-3 card-cyan-glow">
+                        <div class="d-flex justify-between align-center mb-2">
+                            <div>
+                                <h3 style="margin:0; color:var(--cyan-bright);">公開房間帳本</h3>
+                                <p class="text-dim" style="font-size:0.78rem; margin-top:3px;">所有已接受下注均列在此，玩家可自行核對。</p>
+                            </div>
+                            <div id="publicLedgerSummary" class="font-mono text-gold text-right" style="font-size:0.82rem;">尚無資料</div>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>時間</th><th>玩家</th><th>盤口／選項</th><th class="text-right">金額</th><th class="text-right">賠率</th><th class="text-center">狀態</th></tr></thead>
+                                <tbody id="publicLedgerBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                     <!-- My Bets (History Tab) -->
                     <div id="historyTab" class="tab-pane" style="display: none;">
                         <div class="card p-0">
@@ -171,7 +188,7 @@
         </main>
 
         <footer style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-top: 40px; padding: 20px 0;">
-            BetPanel VIP · 賠率隨彩池自動浮動 · 結算以您下注當下的鎖定賠率為準<br>© 2026 包廂熱場投注系統
+            BetPanel VIP · 開盤固定賠率 · 結算時從中獎淨利計算抽水<br>© 2026 包廂熱場投注系統
         </footer>
 
     </div>
@@ -181,10 +198,10 @@
 
     <script>
         const cfg = typeof firebaseConfig !== 'undefined' ? firebaseConfig : {
-            apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
-            authDomain: "dicebetpanel.firebaseapp.com",
-            databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "dicebetpanel",
+            apiKey: "AIzaSyDfMIkPI9fdeYg5sVuL4fLHcbSxxtfVgPM",
+            authDomain: "betpanel-249dc.firebaseapp.com",
+            databaseURL: "https://betpanel-249dc-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "betpanel-249dc",
         };
 
         const ROOM_KEY = 'bp-room';
@@ -193,12 +210,14 @@
         const TAB_KEY = 'bp-tab';
 
         let db = null;
+        let auth = null;
+        let authUser = null;
         let firebaseReady = false;
         let currentRoom = null;
         let state = null;
         let pools = {};
         let activeTab = localStorage.getItem(TAB_KEY) || 'bet';
-        let me = { id: null, name: '' };
+        let me = { id: null, authUid: null, name: '' };
         
         const selectedOptions = {};
         const draftAmounts = {};
@@ -216,7 +235,7 @@
             showToast(isMuted ? '已靜音' : '已開啟音效', 'info');
         }
 
-        function initApp() {
+        async function initApp() {
             me.id = localStorage.getItem(ID_KEY);
             if (!me.id) {
                 me.id = 'bettor_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
@@ -238,7 +257,18 @@
             if (!firebase.apps.length) {
                 firebase.initializeApp(cfg);
             }
-            db = firebase.database();
+            db = firebase.database();            auth = firebase.auth();
+            try {
+                const credential = await auth.signInAnonymously();
+                authUser = credential.user;
+                me.authUid = authUser.uid;
+                me.id = authUser.uid;
+                localStorage.setItem(ID_KEY, me.id);
+            } catch (authError) {
+                console.error(authError);
+                showToast('身份驗證失敗，請先在 Firebase 開啟 Anonymous 登入', 'error');
+                return;
+            }
             
             db.ref('.info/connected').on('value', snap => {
                 const connStatus = document.getElementById('connStatus');
@@ -394,6 +424,7 @@
             if (!state) return;
             
             renderSummary();
+            renderPublicLedger();
             
             if (activeTab === 'bet') {
                 renderMarkets();
@@ -409,7 +440,7 @@
             let myPendingAmount = 0;
             
             state.bets.forEach(b => {
-                const isMe = b.bettorId === me.id || (me.name && sameNickname(b.name, me.name));
+                const isMe = (b.bettorUid === me.authUid || b.bettorId === me.id) || (me.name && sameNickname(b.name, me.name));
                 if (isMe) {
                     myBetCount++;
                     myTotalStaked += b.amount;
@@ -593,11 +624,41 @@
             renderAll();
         }
 
+        function renderPublicLedger() {
+            const body = document.getElementById('publicLedgerBody');
+            const summary = document.getElementById('publicLedgerSummary');
+            if (!body || !summary || !state) return;
+            const bets = [...(state.bets || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+            let accepted = 0;
+            let settled = 0;
+            let hostNet = 0;
+            bets.forEach(b => {
+                accepted += Number(b.amount) || 0;
+                const m = state.markets.find(x => x.id === b.marketId);
+                if (m && m.settled) {
+                    settled += Number(b.amount) || 0;
+                    hostNet -= betOutcome(state, pools, b).profit;
+                }
+            });
+            summary.innerHTML = `已登錄下注 <strong>$${fmt(accepted)}</strong><br>已結算莊家損益 <strong style="color:${hostNet >= 0 ? 'var(--green)' : 'var(--red-bright)'}">${hostNet >= 0 ? '+' : ''}$${fmt(hostNet)}</strong>`;
+            if (!bets.length) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-dim">尚無公開下注紀錄</td></tr>';
+                return;
+            }
+            body.innerHTML = bets.map(b => {
+                const m = state.markets.find(x => x.id === b.marketId);
+                const opt = m && m.options.find(x => x.id === b.optionId);
+                const outcome = betOutcome(state, pools, b);
+                const status = outcome.status === 'win' ? '🎉 中獎' : (outcome.status === 'lose' ? '未中' : '⏳ 待結算');
+                const bettor = b.name ? esc(b.name) : '匿名#' + esc(String(b.bettorId || '').slice(-6));
+                return `<tr><td class="text-dim">${new Date(b.ts || Date.now()).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}</td><td>${bettor}</td><td><span class="text-cyan">${esc(m ? m.title : '未知盤口')}</span><br><span class="text-dim">${esc(opt ? opt.label : b.optionId)}</span></td><td class="text-right font-mono">$${fmt(b.amount)}</td><td class="text-right font-mono text-gold">x${betOdds(b).toFixed(2)}</td><td class="text-center">${status}</td></tr>`;
+            }).join('');
+        }
         function renderMyBets() {
             const tbody = document.getElementById('myBetsTableBody');
             const noMsg = document.getElementById('noBetsMsg');
             
-            const myBets = state.bets.filter(b => b.bettorId === me.id || (me.name && sameNickname(b.name, me.name)));
+            const myBets = state.bets.filter(b => (b.bettorUid === me.authUid || b.bettorId === me.id) || (me.name && sameNickname(b.name, me.name)));
             
             if (myBets.length === 0) {
                 tbody.innerHTML = '';
@@ -719,6 +780,7 @@
                     optionId: optionId,
                     name: me.name,
                     bettorId: me.id,
+                    bettorUid: authUser.uid,
                     amount: amount,
                     oddsAtBet: lockedOdds,
                     ts: firebase.database.ServerValue.TIMESTAMP
@@ -764,3 +826,11 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+

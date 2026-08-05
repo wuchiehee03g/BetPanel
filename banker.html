@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -14,6 +14,7 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   
   <!-- Core Engine -->
   <script src="app.js"></script>
@@ -90,13 +91,9 @@
         <!-- CUSTOM RAKE SELECTOR -->
         <div class="form-group">
           <label>設定這場幹部抽水率 (Rake): <span id="rakeDisplay" class="text-cyan" style="font-weight: 800; font-size: 1.1rem;">5%</span></label>
-          <div class="chip-group mb-2">
-            ${RAKE_OPTIONS.map(r => `
-              <button type="button" class="chip-btn ${r === 0.05 ? 'active' : ''}" onclick="setRakeValue(${r * 100})">${r * 100}%</button>
-            `).join('')}
-          </div>
+          <div class="chip-group mb-2" id="rakeOptionsContainer"></div>
           <input type="range" id="rakeRange" min="0" max="15" value="5" step="1" style="width: 100%; accent-color: var(--cyan);">
-          <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;">抽水率內建於浮動賠率中，結算時會自動獨立統計幹部抽水收益</p>
+          <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;">開盤固定賠率，結算時從中獎淨利計算抽水，並獨立統計幹部收益</p>
         </div>
 
         <div class="form-group">
@@ -180,14 +177,7 @@
         <div class="card mb-4">
           <h3 class="mb-3" style="color:var(--cyan-bright);">⚡ 快速開盤 (夜店包廂熱門預設)</h3>
           
-          <div class="preset-grid mb-3">
-            ${NIGHTLIFE_PRESETS.map(p => `
-              <div class="preset-card" onclick="loadPreset('${p.id}')">
-                <div class="preset-title">${esc(p.title)}</div>
-                <div class="preset-desc">${esc(p.desc)}</div>
-              </div>
-            `).join('')}
-          </div>
+          <div class="preset-grid mb-3" id="presetGrid"><div class="text-dim">載入預設盤口中...</div></div>
           
           <hr style="border:none; border-top:1px solid var(--border); margin: 18px 0;">
 
@@ -308,8 +298,8 @@
       <div class="tab-content" id="tab-settings" style="display:none;">
         <div class="card" style="border-color: var(--red);">
           <h3 class="mb-2" style="color:var(--red-bright);">🚨 危險操作區</h3>
-          <p class="text-dim mb-3" style="font-size:0.85rem;">重置包廂將會永久清空目前包廂所有的盤口與下注紀錄，無法復原。</p>
-          <button class="btn btn-danger w-100 py-3" id="btnResetRoom">⚠️ 重置 / 清空包廂所有資料</button>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">封存包廂會停止未結算盤口，但保留所有盤口、下注與審計紀錄。</p>
+          <button class="btn btn-danger w-100 py-3" id="btnResetRoom">📦 封存包廂並保留帳務紀錄</button>
         </div>
       </div>
       
@@ -326,10 +316,10 @@
 
   <script>
     const cfg = typeof firebaseConfig !== 'undefined' ? firebaseConfig : {
-      apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
-      authDomain: "dicebetpanel.firebaseapp.com",
-      databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "dicebetpanel",
+      apiKey: "AIzaSyDfMIkPI9fdeYg5sVuL4fLHcbSxxtfVgPM",
+      authDomain: "betpanel-249dc.firebaseapp.com",
+      databaseURL: "https://betpanel-249dc-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "betpanel-249dc",
     };
 
     const ROOM_KEY = 'bp-host-room';
@@ -376,6 +366,22 @@
       }, 3200);
     }
 
+    function writeAuditLog(action, details = {}) {
+      if (!roomRef) return Promise.resolve();
+      return roomRef.child('auditLogs').push({
+        action,
+        actorId: authUser?.uid || hostProfile?.hostId || 'host-client',
+        actorName: hostProfile?.hostName || state?.hostName || '幹部',
+        actorUid: authUser?.uid || '',
+        ts: firebase.database.ServerValue.TIMESTAMP,
+        ...details
+      });
+    }
+    function renderRakeOptions() {
+      const c = document.getElementById('rakeOptionsContainer');
+      if (!c) return;
+      c.innerHTML = RAKE_OPTIONS.map(r => `<button type="button" class="chip-btn ${r === 0.05 ? 'active' : ''}" onclick="setRakeValue(${r * 100})">${r * 100}%</button>`).join('');
+    }
     function generateCode(length=6) {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let r = '';
@@ -391,10 +397,21 @@
 
     async function initFirebase() {
       updateSoundButtonUI();
+      renderRakeOptions();
+      renderPresetCards();
       if (!firebase.apps.length) {
         firebase.initializeApp(cfg);
       }
       db = firebase.database();
+      auth = firebase.auth();
+      try {
+        const credential = await auth.signInAnonymously();
+        authUser = credential.user;
+      } catch (authError) {
+        console.error(authError);
+        showToast('身份驗證失敗，請先在 Firebase 開啟 Anonymous 登入', 'error');
+        return;
+      }
       await initHostProfile();
       checkSavedRoom();
       setupRedeemListener();
@@ -404,6 +421,7 @@
       let hostId = localStorage.getItem(HOST_ID_KEY);
       if (!hostId) {
         hostProfile = createHostProfile('尊榮幹部');
+        hostProfile.authUid = authUser.uid;
         hostId = hostProfile.hostId;
         localStorage.setItem(HOST_ID_KEY, hostId);
         await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
@@ -411,8 +429,13 @@
         const snap = await db.ref(`betpanel/hosts/${hostId}`).once('value');
         if (snap.exists()) {
           hostProfile = snap.val();
+          if (!hostProfile.authUid) {
+            hostProfile.authUid = authUser.uid;
+            await db.ref(`betpanel/hosts/${hostId}/authUid`).set(authUser.uid);
+          }
         } else {
           hostProfile = createHostProfile('尊榮幹部', hostId);
+          hostProfile.authUid = authUser.uid;
           await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
         }
       }
@@ -555,10 +578,8 @@
         return showToast('請輸入莊家/幹部暱稱', 'error');
       }
       
+      const previousCredits = hostProfile.credits;
       hostProfile.credits -= ROOM_CREATION_COST;
-      await db.ref(`betpanel/hosts/${hostProfile.hostId}/credits`).set(hostProfile.credits);
-      updateHostWalletUI();
-      
       const code = generateCode(6);
       const pin = generateCode(4);
       
@@ -566,14 +587,19 @@
         roomTitle: rTitle,
         hostName: hName,
         hostId: hostProfile.hostId,
+        hostUid: authUser.uid,
         rake: rake,
+        rakePercent: rake / 100,
+        autoPrice: false,
         maxBet: mBet,
         pin: pin,
         createdAt: Date.now()
       };
       
       try {
+        await db.ref(`betpanel/hosts/${hostProfile.hostId}/credits`).set(hostProfile.credits);
         await db.ref('betpanel/rooms/' + code + '/config').set(config);
+        updateHostWalletUI();
         localStorage.setItem(ROOM_KEY, code);
         localStorage.setItem(PIN_KEY, pin);
         SoundEngine.playWin();
@@ -581,7 +607,7 @@
         enterRoom(code);
       } catch(e) {
         SoundEngine.playError();
-        showToast('建立包廂失敗', 'error');
+        showToast('建立包廂失敗：' + (e && e.message ? e.message : '請開啟瀏覽器主控台查看'), 'error');
       }
     });
 
@@ -710,6 +736,16 @@
       showToast(`已載入預設模板：${preset.title}`, 'info');
     }
 
+    function renderPresetCards() {
+      const c = document.getElementById('presetGrid');
+      if (!c) return;
+      c.innerHTML = NIGHTLIFE_PRESETS.map(p => `
+        <div class="preset-card" onclick="loadPreset('${p.id}')">
+          <div class="preset-title">${esc(p.title)}</div>
+          <div class="preset-desc">${esc(p.desc)}</div>
+        </div>
+      `).join('');
+    }
     function renderCreateForm() {
       const c = document.getElementById('optionsContainer');
       c.innerHTML = '';
@@ -780,6 +816,8 @@
         category: 'custom',
         options: optsObj,
         rake: rake,
+        rakePercent: rake / 100,
+        autoPrice: false,
         priorK: parseInt(priorK),
         locked: false,
         settled: false,
@@ -864,9 +902,9 @@
             html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1;">🏆 結算派彩</button>`;
           }
         } else {
-          html += `<button class="btn btn-outline m-unsettle-btn" data-id="${m.id}" style="flex:1;">🔄 撤銷結算</button>`;
+          html += `<span class="badge badge-settled" style="flex:1; text-align:center; padding:10px;">🔒 已結算（不可撤銷）</span>`;
         }
-        html += `<button class="btn btn-danger m-del-btn" data-id="${m.id}" style="background:transparent; border:1px solid var(--red); color:var(--red-bright);">🗑️ 刪除</button>`;
+        html += `<button class="btn btn-danger m-del-btn" data-id="${m.id}" style="background:transparent; border:1px solid var(--red); color:var(--red-bright);">📦 封存盤口</button>`;
         
         html += `</div>`;
         
@@ -908,28 +946,26 @@
             settled: true,
             winnerId: winId
           }).then(() => {
+            writeAuditLog('market_settled', { marketId: id, winnerId: winId });
             SoundEngine.playWin();
             showToast('結算成功！', 'success');
           });
         }
       });
-      document.querySelectorAll('.m-unsettle-btn').forEach(btn => btn.onclick = e => {
+      document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = e => {
         const id = e.target.dataset.id;
-        if(confirm('確定撤銷結算？盤口將恢復為封盤狀態。')) {
+        if(confirm('盤口將被封存並停止操作，下注與結算紀錄不會刪除。確定繼續？')) {
           roomRef.child('markets').child(id).update({
-            settled: false,
-            winnerId: null
+            locked: true,
+            archived: true,
+            archivedAt: firebase.database.ServerValue.TIMESTAMP
+          }).then(() => {
+            writeAuditLog('market_archived', { marketId: id });
+            showToast('盤口已封存，原始紀錄保留', 'success');
           });
         }
       });
-      document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = e => {
-        const id = e.target.dataset.id;
-        if(confirm('確定要刪除此盤口？此動作無法復原。')) {
-          roomRef.child('markets').child(id).remove();
-        }
-      });
     }
-
     function updateStats() {
       const exp = bankerExposure(state, pools);
       document.getElementById('statTotalPool').textContent = '$' + fmt(exp.staked);
@@ -1033,8 +1069,9 @@
           markets: null,
           bets: null
         }).then(() => {
+          writeAuditLog('room_archived');
           SoundEngine.playLock();
-          showToast('包廂資料已成功重置', 'success');
+          showToast('包廂已封存，下注與帳務紀錄仍然保留', 'success');
         });
       }
     });
@@ -1043,3 +1080,22 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

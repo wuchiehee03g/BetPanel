@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BetPanel Demo · 虛擬點數展示</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .demo-banner{background:linear-gradient(90deg,#1b4d68,#26365f);border:1px solid var(--cyan);color:#dffcff;padding:12px 16px;border-radius:10px;margin:18px 0;font-weight:700}
+    .demo-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:18px}
+    .demo-list{display:grid;gap:8px}
+    .demo-choice{border:1px solid var(--border);background:rgba(255,255,255,.03);border-radius:8px;padding:12px;cursor:pointer;text-align:left;color:var(--text-main)}
+    .demo-choice.active{border-color:var(--gold);background:rgba(240,194,66,.13)}
+    .demo-choice:disabled{cursor:not-allowed;opacity:.55}
+    .demo-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+    .demo-kpi>div{background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center}
+    .demo-kpi strong{display:block;font-size:1.2rem;color:var(--gold-bright)}
+    .demo-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .demo-status{font-size:.82rem;color:var(--text-dim);margin-top:8px}
+    @media(max-width:800px){.demo-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="board-header banker">
+      <div class="title-block">
+        <div class="eyebrow"><span class="eyebrow-badge">公開展示版</span> BETPANEL DEMO</div>
+        <h1>包廂活動<span class="accent-b">模擬中心</span></h1>
+      </div>
+      <div class="header-actions"><span class="conn-pill"><span class="conn-dot online"></span> 本機 Demo</span></div>
+    </header>
+
+    <div class="demo-banner">🧪 Demo 模式：虛擬點數、虛擬下注、無金流、無 Firebase、不可兌現。</div>
+
+    <div class="demo-grid">
+      <section class="card">
+        <div class="d-flex justify-between align-center">
+          <div>
+            <div class="text-dim" style="font-size:.78rem;">幹部展示控制台</div>
+            <h2 id="roomTitle">尚未建立 Demo 房間</h2>
+          </div>
+          <div class="text-gold font-mono" id="hostCredits">1,000 Demo Pts</div>
+        </div>
+        <div class="form-group mt-3">
+          <label>幹部名稱</label>
+          <input class="input-control" id="hostName" value="Demo 幹部">
+        </div>
+        <div class="form-group">
+          <label>選擇預設盤口</label>
+          <select class="input-control" id="presetSelect"></select>
+        </div>
+        <div class="demo-actions">
+          <button class="btn btn-cyan" id="createRoomBtn">建立 Demo 房間</button>
+          <button class="btn btn-outline" id="resetBtn">重置 Demo</button>
+        </div>
+        <div class="demo-status" id="hostStatus"></div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+        <h3>盤口控制</h3>
+        <div id="hostMarket"></div>
+      </section>
+
+      <section class="card">
+        <div class="d-flex justify-between align-center">
+          <div>
+            <div class="text-dim" style="font-size:.78rem;">玩家展示頁</div>
+            <h2 id="playerRoomTitle">請先建立 Demo 房間</h2>
+          </div>
+          <span class="badge badge-open">虛擬玩家 · <span id="playerCredits">1,000</span> pts</span>
+        </div>
+        <div class="form-group mt-3">
+          <label>玩家暱稱</label>
+          <input class="input-control" id="playerName" value="Demo 玩家 A">
+        </div>
+        <div id="playerPanel"></div>
+        <div class="demo-kpi">
+          <div><span class="text-dim">公開下注</span><strong id="totalStaked">0</strong></div>
+          <div><span class="text-dim">注數</span><strong id="betCount">0</strong></div>
+          <div><span class="text-dim">莊家已結算</span><strong id="hostNet">待結算</strong></div>
+        </div>
+        <h3>公開房間帳本</h3>
+        <div class="table-responsive">
+          <table>
+            <thead><tr><th>玩家</th><th>選項</th><th class="text-right">金額</th><th class="text-right">賠率</th><th>狀態</th></tr></thead>
+            <tbody id="ledger"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <footer style="text-align:center;color:var(--text-muted);padding:24px 0">BetPanel Demo · 僅供產品展示，不代表正式金流或營運資格</footer>
+  </div>
+
+<script>
+const DEMO_KEY = 'betpanel-demo-state-v1';
+const PRESETS = [
+  {id:'dice',title:'骰子比大小',desc:'大、小、豹子',options:[['大 (11-17)',1.95],['小 (4-10)',1.95],['豹子 (三同數)',5]]},
+  {id:'duel',title:'吹牛對決',desc:'兩人對決',options:[['選手 A',2],['選手 B',2]]},
+  {id:'sing',title:'KTV 評分對決',desc:'是否突破 90 分',options:[['高分突破',2.1],['未達標準',1.75]]}
+];
+let state = load();
+let selected = null;
+
+function load(){
+  try { const x=JSON.parse(localStorage.getItem(DEMO_KEY)); if(x){x.playerBalances=x.playerBalances||{};return x;} } catch(e){}
+  return {roomCode:null,roomTitle:'',hostName:'Demo 幹部',hostCredits:1000,archived:false,market:null,bets:[],playerBalances:{}};
+}
+function save(){localStorage.setItem(DEMO_KEY,JSON.stringify(state));}
+function money(n){return Number(n||0).toLocaleString('en-US');}
+function preset(){return PRESETS.find(x=>x.id===document.getElementById('presetSelect').value)||PRESETS[0];}
+function payout(b){
+  const profit=Math.max(0,b.amount*b.odds-b.amount);
+  return b.amount+profit*(1-(state.market.rake||.05));
+}
+function createRoom(){
+  const p=preset();
+  state={roomCode:'DEMO-'+Math.random().toString(36).slice(2,6).toUpperCase(),roomTitle:p.title,hostName:document.getElementById('hostName').value.trim()||'Demo 幹部',hostCredits:1000,archived:false,market:{title:p.title,desc:p.desc,rake:.05,locked:false,settled:false,winnerId:null,options:p.options.map((x,i)=>({id:'o'+i,label:x[0],odds:x[1]}))},bets:[],playerBalances:{}};
+  selected=null; save(); render();
+}
+function placeBet(){
+  if(!state.market||state.archived||state.market.locked||state.market.settled)return alert('目前不能下注');
+  const opt=document.querySelector('input[name="demoOpt"]:checked');
+  const amount=Number(document.getElementById('betAmount').value);
+  const name=document.getElementById('playerName').value.trim()||'Demo 玩家';
+  if(!opt||!Number.isInteger(amount)||amount<=0)return alert('請選擇選項並輸入整數金額');
+  if(state.playerBalances[name]===undefined)state.playerBalances[name]=1000;
+  if(state.playerBalances[name]<amount)return alert('虛擬點數不足（每個 Demo 玩家起始 1,000 點）');
+  const o=state.market.options.find(x=>x.id===opt.value);
+  state.playerBalances[name]-=amount;
+  state.bets.push({id:'b'+Date.now(),name,optionId:o.id,optionLabel:o.label,amount,odds:o.odds,status:'pending'});
+  save();render();
+}function lockMarket(){if(state.market&&!state.market.settled){state.market.locked=true;save();render();}}
+function settle(){
+  if(!state.market||state.archived||!state.market.locked||state.market.settled)return;
+  const win=document.getElementById('winnerSelect').value;
+  state.market.settled=true;state.market.winnerId=win;state.market.settledAt=Date.now();
+  state.bets.forEach(b=>{b.status=b.optionId===win?'win':'lose';if(b.status==='win')state.playerBalances[b.name]=(state.playerBalances[b.name]||0)+payout(b);});
+  const total=state.bets.reduce((a,b)=>a+b.amount,0);
+  const paid=state.bets.filter(b=>b.optionId===win).reduce((a,b)=>a+payout(b),0);
+  state.hostCredits+=total-paid;
+  state.market.hostNetApplied=true;
+  save();render();
+}function archive(){if(state.roomCode&&!state.archived){state.archived=true;if(state.market)state.market.locked=true;save();render();}}
+function reset(){localStorage.removeItem(DEMO_KEY);state=load();selected=null;render();}
+function render(){
+  document.getElementById('presetSelect').innerHTML=PRESETS.map(p=>'<option value="'+p.id+'">'+p.title+' · '+p.desc+'</option>').join('');
+  document.getElementById('roomTitle').textContent=state.roomCode?(state.roomTitle+' · '+state.roomCode):'尚未建立 Demo 房間';
+  document.getElementById('playerRoomTitle').textContent=state.roomCode?(state.roomTitle+' · '+state.roomCode):'請先建立 Demo 房間';
+  document.getElementById('hostCredits').textContent=money(state.hostCredits)+' Demo Pts';
+  document.getElementById('hostStatus').textContent=state.archived?'已封存（保留帳本）':state.market&&state.market.settled?'已結算':state.market&&state.market.locked?'已封盤':'可開放下注';
+  const hm=document.getElementById('hostMarket');
+  if(!state.market){hm.innerHTML='<p class="text-dim mt-2">建立房間後可控制盤口。</p>';}
+  else {
+    const m=state.market;
+    hm.innerHTML='<div class="demo-status">'+m.desc+' · 抽水 '+(m.rake*100)+'% · '+(m.locked?'已封盤':'開放中')+'</div>'+
+      '<div class="demo-actions mt-2"><button class="btn btn-danger" id="lockBtn" '+(m.locked?'disabled':'')+'>封盤</button>'+
+      '<button class="btn btn-gold" id="settleBtn" '+(!m.locked||m.settled?'disabled':'')+'>結算</button>'+
+      '<button class="btn btn-outline" id="archiveBtn" '+(state.archived?'disabled':'')+'>封存房間</button></div>'+
+      '<div class="demo-status mt-2">選項：'+m.options.map(o=>o.label+' x'+o.odds.toFixed(2)).join(' / ')+'</div>'+
+      (m.locked&&!m.settled?'<select class="input-control mt-2" id="winnerSelect">'+m.options.map(o=>'<option value="'+o.id+'">'+o.label+'</option>').join('')+'</select>':'');
+    document.getElementById('lockBtn').onclick=lockMarket;
+    document.getElementById('settleBtn').onclick=settle;
+    document.getElementById('archiveBtn').onclick=archive;
+  }
+  const pp=document.getElementById('playerPanel');
+  if(!state.market)pp.innerHTML='<p class="text-dim">建立房間後可模擬玩家下注。</p>';
+  else {
+    const m=state.market;
+    pp.innerHTML='<div class="demo-list">'+m.options.map(o=>'<label class="demo-choice"><input type="radio" name="demoOpt" value="'+o.id+'"> '+o.label+' <span class="text-gold">x'+o.odds.toFixed(2)+'</span></label>').join('')+'</div>'+
+      '<div class="d-flex gap-2 mt-2"><input class="input-control" id="betAmount" type="number" value="100" min="1" step="100"><button class="btn btn-gold" id="betBtn" '+(state.archived||m.locked||m.settled?'disabled':'')+'>虛擬下注</button></div>'+
+      '<div class="demo-status">玩家只會扣除本機虛擬點數，結算也只在此瀏覽器模擬。</div>';
+    document.getElementById('betBtn').onclick=placeBet;
+  }
+  const currentPlayer=document.getElementById('playerName').value.trim()||'Demo 玩家';
+  if(state.playerBalances[currentPlayer]===undefined)state.playerBalances[currentPlayer]=1000;
+  document.getElementById('playerCredits').textContent=money(state.playerBalances[currentPlayer]);
+  const total=state.bets.reduce((a,b)=>a+b.amount,0);
+  let hostNet=0;
+  if(state.market&&state.market.settled){hostNet=total-state.bets.filter(b=>b.optionId===state.market.winnerId).reduce((a,b)=>a+payout(b),0);}
+  document.getElementById('totalStaked').textContent=money(total);
+  document.getElementById('betCount').textContent=state.bets.length;
+  document.getElementById('hostNet').textContent=state.market&&state.market.settled?((hostNet>=0?'+':'')+money(hostNet)):'待結算';
+  document.getElementById('ledger').innerHTML=state.bets.length?state.bets.map(b=>'<tr><td>'+b.name+'</td><td>'+b.optionLabel+'</td><td class="text-right">'+money(b.amount)+'</td><td class="text-right">x'+b.odds.toFixed(2)+'</td><td>'+(b.status==='win'?'🎉 中獎':b.status==='lose'?'未中':'⏳ 待結算')+'</td></tr>').join(''):'<tr><td colspan="5" class="text-center text-dim">尚無虛擬下注</td></tr>';
+}
+document.getElementById('createRoomBtn').onclick=createRoom;
+document.getElementById('resetBtn').onclick=reset;
+window.addEventListener('storage',e=>{if(e.key===DEMO_KEY){state=load();render();}});
+render();
+</script>
+</body>
+</html>

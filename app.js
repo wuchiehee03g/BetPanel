@@ -1,14 +1,14 @@
-/**
+﻿/**
  * BetPanel · 包廂熱場投注系統
  * 核心引擎 (Core Engine v3.0 - Commercial Edition)
  * 包含：業務邏輯、賠率引擎、點數錢包、兌換碼儲值、推薦分潤模組、極簡帳單與 Web Audio 音效
  */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDMq0XabHZFuOK_Olja-cqSOMDx2ygc8i4",
-  authDomain: "dicebetpanel.firebaseapp.com",
-  databaseURL: "https://dicebetpanel-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "dicebetpanel",
+  apiKey: "AIzaSyDfMIkPI9fdeYg5sVuL4fLHcbSxxtfVgPM",
+  authDomain: "betpanel-249dc.firebaseapp.com",
+  databaseURL: "https://betpanel-249dc-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "betpanel-249dc",
 };
 
 const DB_PATH = 'betpanel';
@@ -339,7 +339,8 @@ function liveOdds(pools, market, optId) {
   const opt = market.options.find(o => o.id === optId);
   if (!opt) return { value: DEFAULT_ODDS, auto: false, opening: DEFAULT_ODDS };
   
-  const auto = market.autoPrice !== false;
+  // 預設採用開盤固定賠率；只有盤口明確寫入 true 才啟用浮動賠率。
+  const auto = market.autoPrice === true;
   const opening = opt.odds || DEFAULT_ODDS;
   const value = auto ? autoOdds(pools, market, optId) : opening;
   
@@ -354,14 +355,14 @@ function buildDuelMarket(opts) {
   const { nameA, nameB, rakePercent, priorK, maxBet, maxPerBettor, maxLiability } = opts;
   const rake = typeof rakePercent === 'number' ? rakePercent : DEFAULT_RAKE;
   const impliedProb = 0.5;
-  const initialOdds = 1 / (impliedProb * (1 + rake));
+  const initialOdds = 1 / impliedProb;
   
   return {
     title: `${nameA} vs ${nameB}`,
     desc: '1v1 對決盤口',
     category: 'duel',
     rakePercent: rake,
-    autoPrice: true,
+    autoPrice: false,
     priorK: priorK || DEFAULT_PRIOR_K,
     maxBet: maxBet || null,
     maxPerBettor: maxPerBettor || null,
@@ -392,7 +393,7 @@ function buildCustomMarket(opts) {
     desc,
     category: 'custom',
     rakePercent: typeof rakePercent === 'number' ? rakePercent : DEFAULT_RAKE,
-    autoPrice: autoPrice !== false,
+    autoPrice: autoPrice === true,
     priorK: priorK || DEFAULT_PRIOR_K,
     maxBet: maxBet || null,
     locked: false,
@@ -410,6 +411,13 @@ function buildCustomMarket(opts) {
 function betOdds(bet) {
   return Number(bet.oddsAtBet) || 1.0;
 }
+function payoutForBet(bet, market) {
+  const amount = Number(bet.amount) || 0;
+  const grossProfit = Math.max(0, amount * betOdds(bet) - amount);
+  const rake = Math.max(0, Math.min(1, Number(market && market.rakePercent) || 0));
+  // 抽水只從中獎淨利扣除；本金完整返還，賠率在下注時固定。
+  return amount + grossProfit * (1 - rake);
+}
 
 function bankerNetIfWins(state, pools, market, winOptId) {
   if (!market) return 0;
@@ -419,7 +427,7 @@ function bankerNetIfWins(state, pools, market, winOptId) {
   
   for (const bet of state.bets) {
     if (bet.marketId === market.id && bet.optionId === winOptId) {
-      payout += bet.amount * betOdds(bet);
+      payout += payoutForBet(bet, market);
     }
   }
   
@@ -452,13 +460,14 @@ function settleInfo(state, pools, market) {
   let payoutTotal = 0;
   for (const bet of state.bets) {
     if (bet.marketId === market.id && bet.optionId === market.winnerId) {
-      payoutTotal += bet.amount * betOdds(bet);
+      payoutTotal += payoutForBet(bet, market);
     }
   }
   
   const bankerNet = total - payoutTotal;
   const winPool = poolOf(pools, market.id, market.winnerId);
-  const rakeEarned = total * (market.rakePercent || 0); // 幹部設定之抽水收益
+  const grossPayout = state.bets.filter(bet => bet.marketId === market.id && bet.optionId === market.winnerId).reduce((sum, bet) => sum + (Number(bet.amount) * Math.max(0, betOdds(bet) - 1)), 0);
+  const rakeEarned = grossPayout - Math.max(0, payoutTotal - winPool); // 只抽中獎淨利
   
   return {
     total,
@@ -477,7 +486,7 @@ function betOutcome(state, pools, bet) {
   }
   
   if (bet.optionId === market.winnerId) {
-    const payout = bet.amount * betOdds(bet);
+    const payout = payoutForBet(bet, market);
     return { status: 'win', profit: payout - bet.amount, payout };
   } else {
     return { status: 'lose', profit: -bet.amount, payout: 0 };
@@ -728,3 +737,8 @@ if (typeof module !== 'undefined' && module.exports) {
     categoryLabel
   };
 }
+
+
+
+
+

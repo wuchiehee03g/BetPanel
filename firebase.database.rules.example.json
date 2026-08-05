@@ -1,0 +1,41 @@
+{
+  "rules": {
+    "betpanel": {
+      ".read": true,
+      "rooms": {
+        "$roomId": {
+          ".read": true,
+          "config": {
+            ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('hostUid').val() == auth.uid) || (data.exists() && data.child('hostUid').val() == auth.uid && newData.child('hostUid').val() == data.child('hostUid').val() && (data.child('status').val() != 'archived' || newData.child('status').val() == 'archived')))"
+          },
+          "markets": {
+            "$marketId": {
+              ".write": "auth != null && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid && newData.exists() && (!data.exists() || data.child('settled').val() != true || (newData.child('settled').val() == true && newData.child('winnerId').val() == data.child('winnerId').val()))",
+              ".validate": "newData.hasChildren(['title','options'])"
+            }
+          },
+          "bets": {
+            "$betId": {
+              ".write": "auth != null && !data.exists() && newData.exists() && newData.child('bettorUid').val() == auth.uid && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val()).exists() && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/locked').val() != true && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/settled').val() != true",
+              ".validate": "newData.hasChildren(['marketId','optionId','amount','oddsAtBet','bettorUid','ts']) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && newData.child('oddsAtBet').isNumber() && newData.child('oddsAtBet').val() >= 1"
+            }
+          },
+          "auditLogs": {
+            "$logId": {
+              ".write": "auth != null && !data.exists() && newData.exists() && newData.child('actorUid').val() == auth.uid",
+              ".validate": "newData.hasChildren(['action','actorUid','ts'])"
+            }
+          }
+        }
+      },
+      "hosts": {
+        "$hostId": {
+          ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('authUid').val() == auth.uid && newData.child('credits').val() == 1000) || (data.child('authUid').val() == auth.uid && newData.child('authUid').val() == auth.uid && newData.child('credits').val() <= data.child('credits').val()) || (!data.child('authUid').exists() && newData.child('authUid').val() == auth.uid))"
+        }
+      },
+      "redeemCodes": {
+        ".write": false
+      }
+    }
+  }
+}
