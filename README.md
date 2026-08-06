@@ -58,7 +58,6 @@ Betpanel/
 
 - 玩家頁面：[https://wuchiehee03g.github.io/BetPanel/index.html](https://wuchiehee03g.github.io/BetPanel/index.html)
 - 莊家頁面：[https://wuchiehee03g.github.io/BetPanel/banker.html](https://wuchiehee03g.github.io/BetPanel/banker.html)
-- Demo 頁面：[https://wuchiehee03g.github.io/BetPanel/demo.html](https://wuchiehee03g.github.io/BetPanel/demo.html)
 ### 本機測試
 ```bash
 npx serve .
