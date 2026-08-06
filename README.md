@@ -1,4 +1,4 @@
-﻿# 👑 BetPanel VIP · 商業級包廂熱場投注系統
+# 👑 BetPanel VIP · 商業級包廂熱場投注系統
 
 高質感現場即時下注娛樂平台，專為**酒店包廂、KTV、酒吧、夜店與私人聚會**設計。
 
@@ -54,6 +54,11 @@ Betpanel/
 
 ## 🛠️ 本機測試與部署
 
+## 🔗 線上網址
+
+- 玩家頁面：[https://wuchiehee03g.github.io/BetPanel/index.html](https://wuchiehee03g.github.io/BetPanel/index.html)
+- 莊家頁面：[https://wuchiehee03g.github.io/BetPanel/banker.html](https://wuchiehee03g.github.io/BetPanel/banker.html)
+- Demo 頁面：[https://wuchiehee03g.github.io/BetPanel/demo.html](https://wuchiehee03g.github.io/BetPanel/demo.html)
 ### 本機測試
 ```bash
 npx serve .
