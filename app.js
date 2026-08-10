@@ -35,14 +35,19 @@ const CATEGORIES = [
 // 夜店/包廂熱門預設盤口
 const NIGHTLIFE_PRESETS = [
   { id:'dice_duel', group:'dice', title:'吹牛對決 (1v1)', desc:'勝者繼續留桌；可替換為無酒精懲罰', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'dice_size', group:'dice', title:'骰子比大小', desc:'大、小、豹子', category:'custom', options:[{label:'大 (11-17)',odds:2.00},{label:'小 (4-10)',odds:2.00},{label:'豹子 (三同數)',odds:5.00}] },
-  { id:'red_black_odd_even', group:'dice', title:'紅黑單雙', desc:'預測骰子結果的顏色或單雙', category:'multi', options:[{label:'紅單',odds:4.00},{label:'紅雙',odds:4.00},{label:'黑單',odds:4.00},{label:'黑雙',odds:4.00}] },
-  { id:'dice_high_low', group:'dice', title:'骰盅高低', desc:'三顆骰子總點數高低', category:'duel', options:[{label:'高',odds:2.00},{label:'低',odds:2.00}] },
-  { id:'rock_paper_scissors', group:'punch', title:'猜拳三戰兩勝', desc:'預測最終勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'punch_5', group:'punch', title:'5 划拳', desc:'五局制划拳對決', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'punch_10', group:'punch', title:'10 划拳', desc:'十局制划拳對決', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'punch_15', group:'punch', title:'15 划拳', desc:'十五局制划拳對決', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'niuniu', group:'dice', title:'妞妞', desc:'莊家與玩家牌型對決', category:'duel', options:[{label:'玩家勝',odds:2.00},{label:'莊家勝',odds:2.00}] },
+  { id:'sicbo', group:'dice', title:'骰寶', desc:'大、小、豹子', category:'custom', options:[{label:'大 (11-17)',odds:2.00},{label:'小 (4-10)',odds:2.00},{label:'豹子 (三同數)',odds:5.00}] },
+  { id:'blackjack', group:'dice', title:'21 點', desc:'玩家與莊家結果', category:'multi', options:[{label:'玩家勝',odds:2.00},{label:'莊家勝',odds:2.00},{label:'和局',odds:8.00}] },
+  { id:'eighteen', group:'dice', title:'十八啦', desc:'預測是否達成 18 點', category:'duel', options:[{label:'18 點',odds:2.00},{label:'非 18 點',odds:2.00}] },
+
+
+
+
+
+
+
   { id:'singapore_punch', group:'punch', title:'新加坡拳', desc:'新加坡拳玩法，預測最後勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'punch_5_10_15', group:'punch', title:'5／10／15 划拳', desc:'由莊家在盤口說明選擇 5、10 或 15 局', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
   { id:'seaweed_punch', group:'punch', title:'海帶拳', desc:'海帶拳玩法，預測最後勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
   { id:'drink_speed', group:'challenge', title:'喝酒速度挑戰', desc:'同樣份量，預測誰先完成；可替換無酒精飲品', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
   { id:'drink_volume', group:'challenge', title:'限時飲用量挑戰', desc:'同樣時間，預測誰完成更多；可替換無酒精飲品', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
