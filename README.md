@@ -21,10 +21,10 @@
 4. **即時跑馬燈動態 (Room Live Ticker)**：
    - 即時顯示包廂內最新下注動態（例如：`🔥 小明 下注 $1,000 於 [吹牛對決 - 選手A] (賠率 x2.10)`），極大化現場熱度與競爭氛圍。
 
-5. **幹部 / 莊家一鍵開盤預設庫**：
-   - 內建分類盤口範本（妞妞、骰寶、21點、十八啦、5／10／15划拳、新加坡拳、海帶拳等）；地方玩法以莊家發布的盤口說明為準。
+5. **幹部一鍵開盤預設庫**：
+   - 內建分類盤口範本（妞妞、骰寶、21點、十八啦、5／10／15划拳、新加坡拳、海帶拳等）；地方玩法以幹部發布的盤口說明為準。
 
-6. **莊家風險雷達 (Risk Radar) & VIP 格式化結算帳單**：
+6. **幹部風險雷達 (Risk Radar) & VIP 格式化結算帳單**：
    - **風控雷達**：即時監控總彩池、已結算收益與未結算最差曝險額 (Worst Exposure)。
    - **一鍵帳單產出**：遊戲結束後產出乾淨俐落的 ASCII / 文字框結算單，1-Click 複製直接貼至 LINE / 微信群組。
 
@@ -44,7 +44,7 @@
 ```
 Betpanel/
 ├── index.html    # 玩家頁面 (掃碼加入、互動選項卡片、下注試算器、個人注單)
-├── banker.html   # 莊家後台 (創房、一鍵預設開盤、風控雷達、帳單複製)
+├── banker.html   # 幹部後台 (創房、一鍵預設開盤、風控雷達、帳單複製)
 ├── app.js        # 核心引擎 (貝氏調盤演算法、音效引擎、正規化、帳單生成)
 ├── style.css     # 奢華黑金視覺設計系統 (Glassmorphism, 霓虹光暈, 響應式佈局)
 └── README.md     # 系統商業說明文件
@@ -57,14 +57,14 @@ Betpanel/
 ## 🔗 線上網址
 
 - 玩家頁面：[https://wuchiehee03g.github.io/BetPanel/index.html](https://wuchiehee03g.github.io/BetPanel/index.html)
-- 莊家頁面：[https://wuchiehee03g.github.io/BetPanel/banker.html](https://wuchiehee03g.github.io/BetPanel/banker.html)
+- 幹部頁面：[https://wuchiehee03g.github.io/BetPanel/banker.html](https://wuchiehee03g.github.io/BetPanel/banker.html)
 ### 本機測試
 ```bash
 npx serve .
 ```
 
 - 玩家端網址：`http://localhost:3000/index.html`
-- 莊家端網址：`http://localhost:3000/banker.html`
+- 幹部端網址：`http://localhost:3000/banker.html`
 
 ### 部署方式
 為靜態 Web 應用，可直接免費部署至：
@@ -81,7 +81,7 @@ npx serve .
 - 抽水在結算時從「中獎淨利」扣除，本金不抽水，較容易向客人說明與對帳。
 - 「清房」應採封存，不要刪除房間、盤口或下注資料；否則會失去客人注單、爭議證據與幹部結算依據。
 - 目前是前端示範版，正式販售點數前必須加登入、伺服器端下注驗證、交易／兌換碼原子操作與資料庫規則。
-- 玩家端新增公開房間帳本，可交叉核對所有下注、賠率與已結算莊家損益。
+- 玩家端新增公開房間帳本，可交叉核對所有下注、賠率與已結算幹部損益。
 - irebase.database.rules.example.json 提供下注與審計紀錄的追加不可刪除規則範本；正式部署前仍須接上 Firebase Authentication。
 
 © 2026 BetPanel VIP Systems. All Rights Reserved.

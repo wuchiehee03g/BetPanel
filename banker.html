@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   
   <!-- Core Engine -->
-  <script src="app.js?v=game-desc3"></script>
+  <script src="app.js?v=role-host1"></script>
 </head>
 <body class="banker-mode">
 
@@ -29,7 +29,7 @@
         <div class="eyebrow">
           <span class="eyebrow-badge">商業幹部版</span> BETPANEL VIP
         </div>
-        <h1>莊家<span class="accent-b">後台中心</span></h1>
+        <h1>幹部<span class="accent-b">後台中心</span></h1>
       </div>
       
       <div class="header-actions">
@@ -84,7 +84,7 @@
         </div>
 
         <div class="form-group">
-          <label>莊家 / 幹部暱稱</label>
+          <label>幹部暱稱</label>
           <input type="text" id="hostName" placeholder="例如：阿翔幹部">
         </div>
 
@@ -120,7 +120,7 @@
         </div>
         
         <div class="text-dim mb-3" style="font-size:0.88rem;">
-          莊家: <span id="infoHostName" class="text-cyan" style="font-weight:bold;"></span> │ 
+          幹部: <span id="infoHostName" class="text-cyan" style="font-weight:bold;"></span> │ 
           設定抽水率: <span id="infoRake" class="text-gold" style="font-weight:bold;"></span>%
         </div>
         
@@ -141,7 +141,7 @@
           <div id="statHostRake" class="num">+$0</div>
         </div>
         <div class="stat-card">
-          <div class="lbl">莊家已結算淨利</div>
+          <div class="lbl">幹部已結算淨利</div>
           <div id="statHostNet" class="num pos">$0</div>
         </div>
         <div class="stat-card">
@@ -231,7 +231,7 @@
         <!-- VIP BILL GENERATOR CARD -->
         <div class="card card-gold-glow mb-4">
           <h3 class="mb-2" style="color:var(--gold-bright);">📜 一鍵包廂結算帳單</h3>
-          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出幹部抽水收益、莊家總派彩與每一位客人的中獎/輸贏款項。</p>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出幹部抽水收益、幹部總派彩與每一位客人的中獎/輸贏款項。</p>
           
           <button class="btn btn-gold w-100 py-3 mb-3" id="btnGenerateBill" style="font-size: 1.05rem;">
             🧾 一鍵生成全包廂結算明細
@@ -316,7 +316,7 @@
     </div>
 
       <section class="card mb-4" style="border-color: var(--cyan);">
-        <h3 style="color:var(--cyan-bright); margin-bottom:10px;">📘 莊家操作手冊</h3>
+        <h3 style="color:var(--cyan-bright); margin-bottom:10px;">📘 幹部操作手冊</h3>
         <ol class="text-dim" style="margin:0; padding-left:22px; line-height:1.8; font-size:0.88rem;">
           <li>建立包廂後，從「快速開盤」選模板，確認選項、固定賠率、抽水與最高下注額。</li>
           <li>將玩家網址與包廂代碼提供給玩家；只有資料庫成功寫入的下注才算成立。</li>
@@ -597,7 +597,7 @@
       
       if(!hName) {
         SoundEngine.playError();
-        return showToast('請輸入莊家/幹部暱稱', 'error');
+        return showToast('請輸入幹部暱稱', 'error');
       }
       
       const previousCredits = hostProfile.credits;
@@ -692,7 +692,7 @@
         state = normalize(rawState);
         pools = buildPools(state);
         
-        document.getElementById('infoHostName').textContent = esc(state.hostName || '莊家');
+        document.getElementById('infoHostName').textContent = esc(state.hostName || '幹部');
         document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
         
         renderMarkets();
@@ -787,7 +787,7 @@
       const message = input.value.trim();
       if (!roomRef || !message) return showToast('請輸入戰況內容', 'error');
       try {
-        await roomRef.child('updates').push({ message, type: document.getElementById('situationType').value, actorUid: authUser.uid, actorName: hostProfile?.hostName || '莊家', ts: firebase.database.ServerValue.TIMESTAMP });
+        await roomRef.child('updates').push({ message, type: document.getElementById('situationType').value, actorUid: authUser.uid, actorName: hostProfile?.hostName || '幹部', ts: firebase.database.ServerValue.TIMESTAMP });
         input.value = '';
         showToast('戰況已推播給玩家', 'success');
       } catch (e) { console.error(e); showToast('戰況推播失敗：' + e.message, 'error'); }
@@ -959,7 +959,7 @@
             <div id="settle-panel-${m.id}" style="display:none; margin-top:14px; padding:14px; background:#0c0e18; border:1px solid var(--gold); border-radius:8px;">
               <h5 class="text-gold mb-2">選擇獲勝選項進行派彩：</h5>
               <select id="settle-sel-${m.id}" class="input-control mb-3">
-                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝莊家損益: $${fmt(bankerNetIfWins(state, pools, m, o.id))})</option>`).join('')}
+                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝幹部損益: $${fmt(bankerNetIfWins(state, pools, m, o.id))})</option>`).join('')}
               </select>
               <button class="btn btn-gold w-100 m-confirm-settle-btn" data-id="${m.id}">✅ 確認宣佈獲勝並即時派彩</button>
             </div>
@@ -1068,7 +1068,7 @@
             <div class="num text-cyan">+$${fmt(res.hostRake)}</div>
           </div>
           <div class="stat-card">
-            <div class="lbl">莊家結算損益</div>
+            <div class="lbl">幹部結算損益</div>
             <div class="num ${res.hostNet >= 0 ? 'pos' : 'neg'}">${res.hostNet >= 0 ? '+' : ''}$${fmt(res.hostNet)}</div>
           </div>
         </div>

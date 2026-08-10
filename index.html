@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     
     <!-- Core App Engine -->
-    <script src="app.js?v=game-desc3"></script>
+    <script src="app.js?v=role-host1"></script>
 </head>
 <body>
 
@@ -46,7 +46,7 @@
             <span class="ticker-content" id="tickerText">歡迎加入包廂！下注動態即時同步中...</span>
         </div>
         <section id="situationPanel" class="card" style="display:none; margin-top:12px; border-color:var(--cyan);">
-            <div class="d-flex justify-between align-center mb-2"><h3 style="margin:0; color:var(--cyan-bright);">📣 即時戰況</h3><span class="text-dim" style="font-size:.78rem;">莊家同步更新</span></div>
+            <div class="d-flex justify-between align-center mb-2"><h3 style="margin:0; color:var(--cyan-bright);">📣 即時戰況</h3><span class="text-dim" style="font-size:.78rem;">幹部同步更新</span></div>
             <div id="situationFeed"></div>
         </section>
 
@@ -57,7 +57,7 @@
                 <div class="card form-card-centered card-gold-glow text-center my-4" style="padding:32px 24px;">
                     <div style="width:60px; height:60px; background:var(--gold-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto; font-size:1.8rem; box-shadow:0 0 20px var(--gold-glow);">👑</div>
                     <h2 style="font-size: 1.6rem; margin-bottom: 6px; color: #fff;">加入包廂賭盤</h2>
-                    <p class="text-dim mb-3" style="font-size: 0.85rem;">請輸入幹部或莊家提供的 6 位包廂代碼</p>
+                    <p class="text-dim mb-3" style="font-size: 0.85rem;">請輸入幹部提供的 6 位包廂代碼</p>
                     
                     <div class="form-group mb-3">
                         <input type="text" id="roomCodeInput" class="input-control font-mono text-gold text-center" 
@@ -138,7 +138,7 @@
                         <div id="noMarketsMsg" class="card text-center text-dim my-4" style="display: none; padding: 36px 20px;">
                             <div style="font-size: 2.5rem; margin-bottom: 8px;">🎲</div>
                             <h3>目前無開放中的盤口</h3>
-                            <p class="mt-2 text-dim" style="font-size: 0.85rem;">請等待幹部/莊家建立新盤口或開盤...</p>
+                            <p class="mt-2 text-dim" style="font-size: 0.85rem;">請等待幹部建立新盤口或開盤...</p>
                         </div>
                     </div>
                     
@@ -657,7 +657,7 @@
                     hostNet -= betOutcome(state, pools, b).profit;
                 }
             });
-            summary.innerHTML = `已登錄下注 <strong>$${fmt(accepted)}</strong><br>已結算莊家損益 <strong style="color:${hostNet >= 0 ? 'var(--green)' : 'var(--red-bright)'}">${hostNet >= 0 ? '+' : ''}$${fmt(hostNet)}</strong>`;
+            summary.innerHTML = `已登錄下注 <strong>$${fmt(accepted)}</strong><br>已結算幹部損益 <strong style="color:${hostNet >= 0 ? 'var(--green)' : 'var(--red-bright)'}">${hostNet >= 0 ? '+' : ''}$${fmt(hostNet)}</strong>`;
             if (!bets.length) {
                 body.innerHTML = '<tr><td colspan="6" class="text-center text-dim">尚無公開下注紀錄</td></tr>';
                 return;
