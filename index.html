@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     
     <!-- Core App Engine -->
-    <script src="app.js?v=odds2"></script>
+    <script src="app.js?v=updates1"></script>
 </head>
 <body>
 
@@ -45,6 +45,10 @@
             <span class="ticker-icon">即時動態</span>
             <span class="ticker-content" id="tickerText">歡迎加入包廂！下注動態即時同步中...</span>
         </div>
+        <section id="situationPanel" class="card" style="display:none; margin-top:12px; border-color:var(--cyan);">
+            <div class="d-flex justify-between align-center mb-2"><h3 style="margin:0; color:var(--cyan-bright);">📣 即時戰況</h3><span class="text-dim" style="font-size:.78rem;">莊家同步更新</span></div>
+            <div id="situationFeed"></div>
+        </section>
 
         <main class="mt-2">
             
@@ -423,11 +427,21 @@
             }
         }
 
+        function renderSituationFeed() {
+            const panel = document.getElementById('situationPanel');
+            const feed = document.getElementById('situationFeed');
+            if (!panel || !feed) return;
+            const updates = (state && state.updates) || [];
+            panel.style.display = updates.length ? 'block' : 'none';
+            const icon = type => type === 'result' ? '🏁' : (type === 'notice' ? '📌' : '🔥');
+            feed.innerHTML = updates.slice(0, 8).map(u => `<div style="padding:8px 0; border-top:1px solid var(--border);"><span style="margin-right:6px;">${icon(u.type)}</span><span style="color:#fff;">${esc(u.message || '')}</span></div>`).join('');
+        }
         function renderAll() {
             if (!state) return;
             
             renderSummary();
             renderPublicLedger();
+            renderSituationFeed();
             
             if (activeTab === 'bet') {
                 renderMarkets();

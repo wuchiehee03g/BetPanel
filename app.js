@@ -34,17 +34,23 @@ const CATEGORIES = [
 
 // 夜店/包廂熱門預設盤口
 const NIGHTLIFE_PRESETS = [
-  { id:'dice_duel', title:'吹牛對決 (1v1)', desc:'勝者繼續留桌，輸的罰酒一杯', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'dice_size', title:'骰子比大小', desc:'大、小、豹子', category:'custom', options:[{label:'大 (11-17)',odds:2.00},{label:'小 (4-10)',odds:2.00},{label:'豹子 (三同數)',odds:5.00}] },
-  { id:'ktv_score', title:'KTV 歡唱評分對決', desc:'下一首歌是否突破 90 分', category:'custom', options:[{label:'高分突破 (>=90)',odds:2.10},{label:'未達標準 (<90)',odds:1.75}] },
-  { id:'rock_paper_scissors', title:'猜拳三戰兩勝', desc:'預測最終勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'red_black_card', title:'撲克牌紅黑', desc:'下一張牌的花色顏色', category:'custom', options:[{label:'紅牌',odds:2.00},{label:'黑牌',odds:2.00}] },
-  { id:'wheel_three', title:'幸運轉盤三色', desc:'轉盤停止時落在哪一區', category:'multi', options:[{label:'藍區',odds:3.00},{label:'金區',odds:3.00},{label:'紫區',odds:3.00}] },
-  { id:'last_digit', title:'尾數奇偶', desc:'抽籤號碼最後一位是奇數或偶數', category:'custom', options:[{label:'奇數',odds:2.00},{label:'偶數',odds:2.00}] },
-  { id:'song_intro', title:'歌曲前奏猜猜看', desc:'下一首播放歌曲的類型', category:'multi', options:[{label:'華語流行',odds:3.00},{label:'西洋流行',odds:3.00},{label:'經典老歌',odds:3.00}] },
-  { id:'emoji_guess', title:'表情符號盲抽', desc:'抽出的神秘表情是哪一種', category:'multi', options:[{label:'笑臉',odds:3.00},{label:'愛心',odds:3.00},{label:'星星',odds:3.00}] },
-  { id:'coin_streak', title:'硬幣連續兩次', desc:'連續兩次擲硬幣是否同面', category:'custom', options:[{label:'同面',odds:2.00},{label:'不同面',odds:2.00}] },
-  { id:'king_penalty', title:'國王大冒險懲罰預測', desc:'預測抽中的挑戰類型', category:'multi', options:[{label:'乾杯特調酒',odds:4.00},{label:'深情告白',odds:4.00},{label:'現場高歌',odds:4.00},{label:'伏地挺身',odds:4.00}] }
+  { id:'dice_duel', group:'dice', title:'吹牛對決 (1v1)', desc:'勝者繼續留桌；可替換為無酒精懲罰', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'dice_size', group:'dice', title:'骰子比大小', desc:'大、小、豹子', category:'custom', options:[{label:'大 (11-17)',odds:2.00},{label:'小 (4-10)',odds:2.00},{label:'豹子 (三同數)',odds:5.00}] },
+  { id:'red_black_odd_even', group:'dice', title:'紅黑單雙', desc:'預測骰子結果的顏色或單雙', category:'multi', options:[{label:'紅單',odds:4.00},{label:'紅雙',odds:4.00},{label:'黑單',odds:4.00},{label:'黑雙',odds:4.00}] },
+  { id:'dice_high_low', group:'dice', title:'骰盅高低', desc:'三顆骰子總點數高低', category:'duel', options:[{label:'高',odds:2.00},{label:'低',odds:2.00}] },
+  { id:'rock_paper_scissors', group:'punch', title:'猜拳三戰兩勝', desc:'預測最終勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'punch_5', group:'punch', title:'5 划拳', desc:'五局制划拳對決', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'punch_10', group:'punch', title:'10 划拳', desc:'十局制划拳對決', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'punch_15', group:'punch', title:'15 划拳', desc:'十五局制划拳對決', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'singapore_punch', group:'punch', title:'新加坡拳', desc:'新加坡拳玩法，預測最後勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'seaweed_punch', group:'punch', title:'海帶拳', desc:'海帶拳玩法，預測最後勝者', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'drink_speed', group:'challenge', title:'喝酒速度挑戰', desc:'同樣份量，預測誰先完成；可替換無酒精飲品', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'drink_volume', group:'challenge', title:'限時飲用量挑戰', desc:'同樣時間，預測誰完成更多；可替換無酒精飲品', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'drink_target', group:'challenge', title:'指定杯數挑戰', desc:'預測誰先完成指定杯數；可替換無酒精飲品', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
+  { id:'ktv_score', group:'challenge', title:'KTV 歡唱評分對決', desc:'下一首歌是否突破 90 分', category:'custom', options:[{label:'高分突破 (>=90)',odds:2.10},{label:'未達標準 (<90)',odds:1.75}] },
+  { id:'king_mild', group:'king', title:'國王大冒險｜輕度', desc:'輕度互動挑戰，可改為非酒精任務', category:'multi', options:[{label:'指定唱歌',odds:4.00},{label:'趣味問答',odds:4.00},{label:'模仿動作',odds:4.00},{label:'分享故事',odds:4.00}] },
+  { id:'king_medium', group:'king', title:'國王大冒險｜中度', desc:'中度互動挑戰，先確認參與者同意', category:'multi', options:[{label:'即興表演',odds:4.00},{label:'指定舞步',odds:4.00},{label:'真心話',odds:4.00},{label:'團體任務',odds:4.00}] },
+  { id:'king_extreme', group:'king', title:'國王大冒險｜高強度', desc:'高強度僅作展示，禁止危險或強迫飲酒', category:'multi', options:[{label:'高難度表演',odds:4.00},{label:'團體接力',odds:4.00},{label:'即興挑戰',odds:4.00},{label:'安全替代任務',odds:4.00}] }
 ];
 
 // 預設示範兌換碼 (若資料庫尚無則自動初始化)
@@ -227,8 +233,13 @@ function normalize(raw) {
     createdAt: config.createdAt || raw.createdAt || Date.now(),
     maxBet: typeof config.maxBet === 'number' ? config.maxBet : (typeof raw.maxBet === 'number' ? raw.maxBet : DEFAULT_MAX_BET),
     markets: [],
-    bets: []
+    bets: [],
+    updates: []
   };
+
+  if (raw.updates) {
+    state.updates = Object.keys(raw.updates).map(uId => ({ ...raw.updates[uId], id: uId })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  }
 
   if (raw.markets) {
     state.markets = Object.keys(raw.markets).map(mId => {

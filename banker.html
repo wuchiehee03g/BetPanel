@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   
   <!-- Core Engine -->
-  <script src="app.js?v=odds2"></script>
+  <script src="app.js?v=updates1"></script>
 </head>
 <body class="banker-mode">
 
@@ -178,6 +178,16 @@
           <h3 class="mb-3" style="color:var(--cyan-bright);">⚡ 快速開盤 (夜店包廂熱門預設)</h3>
           
           <div class="preset-grid mb-3" id="presetGrid"><div class="text-dim">載入預設盤口中...</div></div>
+          <div class="card mb-3" style="background:rgba(0,0,0,.18); border-color:rgba(0,240,255,.35);">
+            <h4 style="color:var(--cyan-bright); margin-bottom:8px;">📣 即時戰況推播</h4>
+            <p class="text-dim" style="font-size:.82rem; margin-bottom:10px;">輸入目前戰況，玩家會在玩家頁即時看到。</p>
+            <div class="d-flex gap-2">
+              <select id="situationType" class="input-control" style="max-width:130px;"><option value="live">戰況</option><option value="result">結果提示</option><option value="notice">公告</option></select>
+              <input id="situationInput" class="input-control" maxlength="200" placeholder="例如：A 選手目前連勝 3 局！">
+              <button class="btn btn-cyan" id="btnPushSituation">發布</button>
+            </div>
+            <div id="situationFeedAdmin" class="mt-2"></div>
+          </div>
           
           <hr style="border:none; border-top:1px solid var(--border); margin: 18px 0;">
 
@@ -686,6 +696,7 @@
         document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
         
         renderMarkets();
+        renderSituationFeedAdmin();
         updateStats();
         checkOpenMarkets();
       });
@@ -748,15 +759,38 @@
       showToast(`已載入預設模板：${preset.title}`, 'info');
     }
 
+    const PRESET_GROUPS = [
+      {key:'dice', title:'🎲 骰子類', hint:'吹牛、紅黑單雙、比大小', open:true},
+      {key:'punch', title:'✊ 划拳類', hint:'5／10／15 划拳、新加坡拳、海帶拳', open:false},
+      {key:'challenge', title:'🥤 喝酒挑戰', hint:'速度、限時飲用量、KTV 評分；可改無酒精版本', open:false},
+      {key:'king', title:'👑 國王大冒險', hint:'輕度／中度／高強度，禁止危險或強迫行為', open:false}
+    ];
+
     function renderPresetCards() {
       const c = document.getElementById('presetGrid');
       if (!c) return;
-      c.innerHTML = NIGHTLIFE_PRESETS.map(p => `
-        <div class="preset-card" onclick="loadPreset('${p.id}')">
-          <div class="preset-title">${esc(p.title)}</div>
-          <div class="preset-desc">${esc(p.desc)}</div>
-        </div>
-      `).join('');
+      c.innerHTML = PRESET_GROUPS.map(g => {
+        const presets = NIGHTLIFE_PRESETS.filter(p => p.group === g.key);
+        return `<details class="preset-group" ${g.open ? 'open' : ''} style="grid-column:1/-1; margin-bottom:10px;"><summary style="cursor:pointer; color:var(--cyan-bright); font-weight:800; padding:10px 4px;">${g.title}<span class="text-dim" style="font-size:.78rem; font-weight:400; margin-left:8px;">${g.hint}</span></summary><div class="preset-grid" style="margin-top:8px;">${presets.map(p => `<div class="preset-card" onclick="loadPreset('${p.id}')"><div class="preset-title">${esc(p.title)}</div><div class="preset-desc">${esc(p.desc)}</div></div>`).join('')}</div></details>`;
+      }).join('');
+    }
+
+    function situationIcon(type) { return type === 'result' ? '🏁' : (type === 'notice' ? '📌' : '🔥'); }
+    function renderSituationFeedAdmin() {
+      const c = document.getElementById('situationFeedAdmin');
+      if (!c) return;
+      const updates = (state && state.updates) || [];
+      c.innerHTML = updates.slice(0, 5).map(u => `<div class="text-dim" style="font-size:.8rem; padding:5px 0; border-top:1px solid var(--border);">${situationIcon(u.type)} ${esc(u.message || '')}</div>`).join('') || '<div class="text-dim" style="font-size:.8rem;">尚無推播</div>';
+    }
+    async function publishSituation() {
+      const input = document.getElementById('situationInput');
+      const message = input.value.trim();
+      if (!roomRef || !message) return showToast('請輸入戰況內容', 'error');
+      try {
+        await roomRef.child('updates').push({ message, type: document.getElementById('situationType').value, actorUid: authUser.uid, actorName: hostProfile?.hostName || '莊家', ts: firebase.database.ServerValue.TIMESTAMP });
+        input.value = '';
+        showToast('戰況已推播給玩家', 'success');
+      } catch (e) { console.error(e); showToast('戰況推播失敗：' + e.message, 'error'); }
     }
     function renderCreateForm() {
       const c = document.getElementById('optionsContainer');
@@ -1088,6 +1122,7 @@
       }
     });
 
+    document.getElementById('btnPushSituation').addEventListener('click', publishSituation);
     window.onload = initFirebase;
   </script>
 </body>
