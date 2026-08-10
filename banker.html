@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BetPanel · 幹部控制台 VIP</title>
+  <title>BetPanel · 莊家控制台 VIP</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   
   <!-- Core Engine -->
-  <script src="app.js?v=role-host1"></script>
+  <script src="app.js?v=role-banker1"></script>
 </head>
 <body class="banker-mode">
 
@@ -27,9 +27,9 @@
     <header class="board-header banker">
       <div class="title-block">
         <div class="eyebrow">
-          <span class="eyebrow-badge">商業幹部版</span> BETPANEL VIP
+          <span class="eyebrow-badge">商業莊家版</span> BETPANEL VIP
         </div>
-        <h1>幹部<span class="accent-b">後台中心</span></h1>
+        <h1>莊家<span class="accent-b">後台中心</span></h1>
       </div>
       
       <div class="header-actions">
@@ -43,7 +43,7 @@
         <span class="conn-dot"></span> 連線中...
       </div>
       <div class="conn-pill" style="border-color: var(--border-gold); background: rgba(240,194,66,0.1); color: var(--gold-bright); font-weight: bold;">
-        💎 幹部額度: <span id="hostCreditsDisplay" class="font-mono">1,000</span> Pts
+        💎 莊家額度: <span id="hostCreditsDisplay" class="font-mono">1,000</span> Pts
       </div>
     </div>
 
@@ -54,7 +54,7 @@
       <div class="card card-gold-glow form-card-centered mb-4">
         <div class="d-flex justify-between align-center mb-3">
           <div>
-            <h3 style="color:var(--gold-bright); margin:0;">💼 幹部點數錢包</h3>
+            <h3 style="color:var(--gold-bright); margin:0;">💼 莊家點數錢包</h3>
             <p class="text-dim" style="font-size:0.82rem; margin-top:2px;">開房每次消耗 100 點數 (新註冊免費贈送 1,000 點)</p>
           </div>
           <div class="font-mono text-gold" style="font-size:1.8rem; font-weight:800;" id="walletBalanceBig">
@@ -84,16 +84,16 @@
         </div>
 
         <div class="form-group">
-          <label>幹部暱稱</label>
-          <input type="text" id="hostName" placeholder="例如：阿翔幹部">
+          <label>莊家暱稱</label>
+          <input type="text" id="hostName" placeholder="例如：阿翔莊家">
         </div>
 
         <!-- CUSTOM RAKE SELECTOR -->
         <div class="form-group">
-          <label>設定這場幹部抽水率 (Rake): <span id="rakeDisplay" class="text-cyan" style="font-weight: 800; font-size: 1.1rem;">5%</span></label>
+          <label>設定這場莊家抽水率 (Rake): <span id="rakeDisplay" class="text-cyan" style="font-weight: 800; font-size: 1.1rem;">5%</span></label>
           <div class="chip-group mb-2" id="rakeOptionsContainer"></div>
           <input type="range" id="rakeRange" min="0" max="15" value="5" step="1" style="width: 100%; accent-color: var(--cyan);">
-          <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;">開盤固定賠率，結算時從中獎淨利計算抽水，並獨立統計幹部收益</p>
+          <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;">開盤固定賠率，結算時從中獎淨利計算抽水，並獨立統計莊家收益</p>
         </div>
 
         <div class="form-group">
@@ -120,7 +120,7 @@
         </div>
         
         <div class="text-dim mb-3" style="font-size:0.88rem;">
-          幹部: <span id="infoHostName" class="text-cyan" style="font-weight:bold;"></span> │ 
+          莊家: <span id="infoHostName" class="text-cyan" style="font-weight:bold;"></span> │ 
           設定抽水率: <span id="infoRake" class="text-gold" style="font-weight:bold;"></span>%
         </div>
         
@@ -137,11 +137,11 @@
           <div id="statTotalPool" class="num">$0</div>
         </div>
         <div class="stat-card blue">
-          <div class="lbl">幹部抽水收益</div>
+          <div class="lbl">莊家抽水收益</div>
           <div id="statHostRake" class="num">+$0</div>
         </div>
         <div class="stat-card">
-          <div class="lbl">幹部已結算淨利</div>
+          <div class="lbl">莊家已結算淨利</div>
           <div id="statHostNet" class="num pos">$0</div>
         </div>
         <div class="stat-card">
@@ -166,7 +166,7 @@
       <div class="tabs">
         <button class="tab-btn active blue" data-target="tab-markets">🎯 盤口管理</button>
         <button class="tab-btn blue" data-target="tab-reports">📊 結算帳單與明細</button>
-        <button class="tab-btn blue" data-target="tab-referral">🤝 幹部推薦與分潤</button>
+        <button class="tab-btn blue" data-target="tab-referral">🤝 莊家推薦與分潤</button>
         <button class="tab-btn blue" data-target="tab-settings">⚙️ 設定維護</button>
       </div>
 
@@ -231,7 +231,7 @@
         <!-- VIP BILL GENERATOR CARD -->
         <div class="card card-gold-glow mb-4">
           <h3 class="mb-2" style="color:var(--gold-bright);">📜 一鍵包廂結算帳單</h3>
-          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出幹部抽水收益、幹部總派彩與每一位客人的中獎/輸贏款項。</p>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出莊家抽水收益、莊家總派彩與每一位客人的中獎/輸贏款項。</p>
           
           <button class="btn btn-gold w-100 py-3 mb-3" id="btnGenerateBill" style="font-size: 1.05rem;">
             🧾 一鍵生成全包廂結算明細
@@ -272,8 +272,8 @@
       <!-- TAB 3: REFERRAL & REBATE MODULE -->
       <div class="tab-content" id="tab-referral" style="display:none;">
         <div class="card card-cyan-glow mb-4">
-          <h3 class="mb-2" style="color:var(--cyan-bright);">🤝 幹部推薦碼與點數分潤</h3>
-          <p class="text-dim mb-3" style="font-size:0.85rem;">推薦其他幹部使用 BetPanel，下線幹部儲值或消費時，您將自動獲得 <strong class="text-cyan">20% 點數返利</strong>！</p>
+          <h3 class="mb-2" style="color:var(--cyan-bright);">🤝 莊家推薦碼與點數分潤</h3>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">推薦其他莊家使用 BetPanel，下線莊家儲值或消費時，您將自動獲得 <strong class="text-cyan">20% 點數返利</strong>！</p>
           
           <div class="stat-box mb-3">
             <div class="stat-label">您的專屬推薦碼</div>
@@ -289,13 +289,13 @@
               <div class="num text-green" id="referralRebateEarned">0 Pts</div>
             </div>
             <div class="stat-card blue">
-              <div class="lbl">我的上級幹部</div>
+              <div class="lbl">我的上級莊家</div>
               <div class="num text-dim" style="font-size:1.1rem;" id="uplineHostDisplay">無</div>
             </div>
           </div>
 
           <div class="form-group mb-2">
-            <label>綁定上線幹部推薦碼 (填寫獲得額外 200 點)</label>
+            <label>綁定上線莊家推薦碼 (填寫獲得額外 200 點)</label>
             <div class="d-flex gap-2">
               <input type="text" id="uplineCodeInput" class="input-control" placeholder="例如：REF-8888" style="text-transform:uppercase;">
               <button class="btn btn-outline" id="btnBindUpline">綁定上線</button>
@@ -316,7 +316,7 @@
     </div>
 
       <section class="card mb-4" style="border-color: var(--cyan);">
-        <h3 style="color:var(--cyan-bright); margin-bottom:10px;">📘 幹部操作手冊</h3>
+        <h3 style="color:var(--cyan-bright); margin-bottom:10px;">📘 莊家操作手冊</h3>
         <ol class="text-dim" style="margin:0; padding-left:22px; line-height:1.8; font-size:0.88rem;">
           <li>建立包廂後，從「快速開盤」選模板，確認選項、固定賠率、抽水與最高下注額。</li>
           <li>將玩家網址與包廂代碼提供給玩家；只有資料庫成功寫入的下注才算成立。</li>
@@ -325,7 +325,7 @@
           <li>結束營運請用「封存包廂」，不要刪除資料或直接修改 Firebase。</li>
         </ol>
       </section>    <footer style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-top: 40px; padding: 20px 0;">
-      BetPanel VIP 幹部系統 · 資料毫秒同步 · 專為酒吧/KTV包廂設計
+      BetPanel VIP 莊家系統 · 資料毫秒同步 · 專為酒吧/KTV包廂設計
     </footer>
 
   </div>
@@ -392,7 +392,7 @@
       return roomRef.child('auditLogs').push({
         action,
         actorId: authUser?.uid || hostProfile?.hostId || 'host-client',
-        actorName: hostProfile?.hostName || state?.hostName || '幹部',
+        actorName: hostProfile?.hostName || state?.hostName || '莊家',
         actorUid: authUser?.uid || '',
         ts: firebase.database.ServerValue.TIMESTAMP,
         ...details
@@ -442,7 +442,7 @@
     async function initHostProfile() {
       let hostId = localStorage.getItem(HOST_ID_KEY);
       if (!hostId) {
-        hostProfile = createHostProfile('尊榮幹部');
+        hostProfile = createHostProfile('尊榮莊家');
         hostProfile.authUid = authUser.uid;
         hostId = hostProfile.hostId;
         localStorage.setItem(HOST_ID_KEY, hostId);
@@ -456,7 +456,7 @@
             await db.ref(`betpanel/hosts/${hostId}/authUid`).set(authUser.uid);
           }
         } else {
-          hostProfile = createHostProfile('尊榮幹部', hostId);
+          hostProfile = createHostProfile('尊榮莊家', hostId);
           hostProfile.authUid = authUser.uid;
           await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
         }
@@ -597,7 +597,7 @@
       
       if(!hName) {
         SoundEngine.playError();
-        return showToast('請輸入幹部暱稱', 'error');
+        return showToast('請輸入莊家暱稱', 'error');
       }
       
       const previousCredits = hostProfile.credits;
@@ -642,7 +642,7 @@
     function copyReferralCode() {
       SoundEngine.playChip();
       const code = hostProfile ? hostProfile.referralCode : 'REF-8888';
-      navigator.clipboard.writeText(code).then(() => showToast('幹部專屬推薦碼已複製！', 'success'));
+      navigator.clipboard.writeText(code).then(() => showToast('莊家專屬推薦碼已複製！', 'success'));
     }
 
     document.getElementById('btnBindUpline').addEventListener('click', async () => {
@@ -653,7 +653,7 @@
       }
       if (hostProfile.referredBy) {
         SoundEngine.playError();
-        return showToast('您已綁定過上線幹部', 'error');
+        return showToast('您已綁定過上線莊家', 'error');
       }
       
       hostProfile.referredBy = code;
@@ -692,7 +692,7 @@
         state = normalize(rawState);
         pools = buildPools(state);
         
-        document.getElementById('infoHostName').textContent = esc(state.hostName || '幹部');
+        document.getElementById('infoHostName').textContent = esc(state.hostName || '莊家');
         document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
         
         renderMarkets();
@@ -787,7 +787,7 @@
       const message = input.value.trim();
       if (!roomRef || !message) return showToast('請輸入戰況內容', 'error');
       try {
-        await roomRef.child('updates').push({ message, type: document.getElementById('situationType').value, actorUid: authUser.uid, actorName: hostProfile?.hostName || '幹部', ts: firebase.database.ServerValue.TIMESTAMP });
+        await roomRef.child('updates').push({ message, type: document.getElementById('situationType').value, actorUid: authUser.uid, actorName: hostProfile?.hostName || '莊家', ts: firebase.database.ServerValue.TIMESTAMP });
         input.value = '';
         showToast('戰況已推播給玩家', 'success');
       } catch (e) { console.error(e); showToast('戰況推播失敗：' + e.message, 'error'); }
@@ -910,7 +910,7 @@
             <div>${statusBadge}</div>
           </div>
           <div class="text-dim mb-3" style="font-size:0.82rem;">
-            總彩池: <strong class="text-gold">$${fmt(totalP)}</strong> │ 幹部抽水: ${m.rake || (state.rakePercent * 100)}%
+            總彩池: <strong class="text-gold">$${fmt(totalP)}</strong> │ 莊家抽水: ${m.rake || (state.rakePercent * 100)}%
           </div>
         `;
         
@@ -959,7 +959,7 @@
             <div id="settle-panel-${m.id}" style="display:none; margin-top:14px; padding:14px; background:#0c0e18; border:1px solid var(--gold); border-radius:8px;">
               <h5 class="text-gold mb-2">選擇獲勝選項進行派彩：</h5>
               <select id="settle-sel-${m.id}" class="input-control mb-3">
-                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝幹部損益: $${fmt(bankerNetIfWins(state, pools, m, o.id))})</option>`).join('')}
+                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝莊家損益: $${fmt(bankerNetIfWins(state, pools, m, o.id))})</option>`).join('')}
               </select>
               <button class="btn btn-gold w-100 m-confirm-settle-btn" data-id="${m.id}">✅ 確認宣佈獲勝並即時派彩</button>
             </div>
@@ -1056,7 +1056,7 @@
       let vHtml = `
         <div class="d-flex justify-between align-center mb-3">
           <h4 style="color:var(--gold-bright); margin:0;">👑 ${esc(state.roomTitle)} · 結算明細卡</h4>
-          <span class="badge badge-open">包廂幹部: ${esc(state.hostName)}</span>
+          <span class="badge badge-open">包廂莊家: ${esc(state.hostName)}</span>
         </div>
         <div class="summary-strip mb-3">
           <div class="stat-card blue">
@@ -1064,11 +1064,11 @@
             <div class="num text-gold">$${fmt(res.totalPool)}</div>
           </div>
           <div class="stat-card blue">
-            <div class="lbl">幹部抽水收益</div>
+            <div class="lbl">莊家抽水收益</div>
             <div class="num text-cyan">+$${fmt(res.hostRake)}</div>
           </div>
           <div class="stat-card">
-            <div class="lbl">幹部結算損益</div>
+            <div class="lbl">莊家結算損益</div>
             <div class="num ${res.hostNet >= 0 ? 'pos' : 'neg'}">${res.hostNet >= 0 ? '+' : ''}$${fmt(res.hostNet)}</div>
           </div>
         </div>

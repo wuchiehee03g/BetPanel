@@ -22,7 +22,7 @@ const MIN_AUTO_ODDS = 1.01;
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
 const DEFAULT_RAKE = 0.05; // 預設 5% 抽水
 const ROOM_CREATION_COST = 100; // 建立一次包廂消耗 100 點數
-const REFERRAL_REBATE_PERCENT = 0.20; // 下線儲值/消費 20% 返利給上線幹部
+const REFERRAL_REBATE_PERCENT = 0.20; // 下線儲值/消費 20% 返利給上線莊家
 
 const RAKE_OPTIONS = [0, 0.03, 0.05, 0.10]; // 0%, 3%, 5%, 10%
 
@@ -35,10 +35,10 @@ const CATEGORIES = [
 // 夜店/包廂熱門預設盤口
 const NIGHTLIFE_PRESETS = [
   { id:'dice_duel', group:'dice', title:'吹牛對決 (1v1)', desc:'輪流喊數並可質疑，依現場約定判定勝負', category:'duel', options:[{label:'選手 A',odds:2.00},{label:'選手 B',odds:2.00}] },
-  { id:'niuniu', group:'dice', title:'妞妞（牛牛）', desc:'常見五張牌玩法：三張湊十的倍數，剩兩張比牛數；牌型依現場規則', category:'duel', options:[{label:'玩家勝',odds:2.00},{label:'幹部勝',odds:2.00}] },
+  { id:'niuniu', group:'dice', title:'妞妞（牛牛）', desc:'常見五張牌玩法：三張湊十的倍數，剩兩張比牛數；牌型依現場規則', category:'duel', options:[{label:'玩家勝',odds:2.00},{label:'莊家勝',odds:2.00}] },
   { id:'sicbo', group:'dice', title:'骰寶', desc:'三顆骰子開盅；總和 4–10 為小、11–17 為大，圍骰另計', category:'custom', options:[{label:'大 (11-17)',odds:2.00},{label:'小 (4-10)',odds:2.00},{label:'圍骰／豹子 (三同數)',odds:5.00}] },
-  { id:'blackjack', group:'dice', title:'21 點', desc:'目標接近 21 且不爆牌；玩家、幹部或和局，採事前約定的補牌規則', category:'multi', options:[{label:'玩家勝',odds:2.00},{label:'幹部勝',odds:2.00},{label:'和局',odds:8.00}] },
-  { id:'eighteen', group:'dice', title:'十八啦', desc:'常見四骰玩法會依配對與剩餘點數計分；骰子數與特殊牌型請於盤口說明' , category:'duel', options:[{label:'玩家／閒家勝',odds:2.00},{label:'幹部勝',odds:2.00}] },
+  { id:'blackjack', group:'dice', title:'21 點', desc:'目標接近 21 且不爆牌；玩家、莊家或和局，採事前約定的補牌規則', category:'multi', options:[{label:'玩家勝',odds:2.00},{label:'莊家勝',odds:2.00},{label:'和局',odds:8.00}] },
+  { id:'eighteen', group:'dice', title:'十八啦', desc:'常見四骰玩法會依配對與剩餘點數計分；骰子數與特殊牌型請於盤口說明' , category:'duel', options:[{label:'玩家／閒家勝',odds:2.00},{label:'莊家勝',odds:2.00}] },
 
 
 
@@ -61,7 +61,7 @@ const NIGHTLIFE_PRESETS = [
 // 預設示範兌換碼 (若資料庫尚無則自動初始化)
 const DEFAULT_REDEEM_CODES = {
   'VIP888': { points: 5000, name: 'VIP尊榮儲值碼 (5000點)' },
-  'WELCOME1000': { points: 1000, name: '幹部首儲新手禮 (1000點)' },
+  'WELCOME1000': { points: 1000, name: '莊家首儲新手禮 (1000點)' },
   'NIGHTCLUB5000': { points: 5000, name: '夜店專案儲值碼 (5000點)' },
   'BETPANEL2026': { points: 2000, name: '官方禮包碼 (2000點)' }
 };
@@ -165,14 +165,14 @@ const SoundEngine = {
 };
 
 /* =========================================
- * 3. 幹部點數錢包與推薦分潤模組 (Host Wallet & Referral System)
+ * 3. 莊家點數錢包與推薦分潤模組 (Host Wallet & Referral System)
  * ========================================= */
 
 function createHostProfile(hostName, hostId = null) {
   const id = hostId || 'host_' + Math.random().toString(36).substring(2, 9);
   return {
     hostId: id,
-    hostName: hostName || '尊榮幹部',
+    hostName: hostName || '尊榮莊家',
     credits: 1000, // 初始贈送 1000 點開房點數
     referralCode: generateReferralCode(),
     referredBy: null,
@@ -205,7 +205,7 @@ function generateRoomPin() {
 function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet = DEFAULT_MAX_BET, hostId = null) {
   return {
     code: generateRoomCode(),
-    hostName: hostName || '包廂幹部',
+    hostName: hostName || '包廂莊家',
     hostId: hostId || 'host_anon',
     roomTitle: roomTitle || 'VIP 尊榮投注包廂',
     hostPin: generateRoomPin(),
@@ -226,11 +226,11 @@ function roomDbPath(roomCode) {
  * ========================================= */
 
 function normalize(raw) {
-  if (!raw) return { markets: [], bets: [], hostName: '包廂幹部', roomTitle: 'VIP 包廂' };
+  if (!raw) return { markets: [], bets: [], hostName: '包廂莊家', roomTitle: 'VIP 包廂' };
   
   const config = raw.config || {};
   const state = {
-    hostName: config.hostName || raw.hostName || '包廂幹部',
+    hostName: config.hostName || raw.hostName || '包廂莊家',
     hostId: config.hostId || raw.hostId || '',
     roomTitle: config.roomTitle || raw.roomTitle || 'VIP 尊榮投注包廂',
     hostPin: config.pin || raw.hostPin || '',
@@ -618,14 +618,14 @@ function generateFormattedBill(state, pools) {
   bill += `│   👑 BetPanel 包廂專屬結算帳單 👑      │\n`;
   bill += `├────────────────────────────────────────┤\n`;
   bill += `  包廂名稱：${state.roomTitle || 'VIP包廂'}\n`;
-  bill += `  幹部：${state.hostName || '幹部'}\n`;
+  bill += `  莊家：${state.hostName || '莊家'}\n`;
   bill += `  結算時間：${nowStr}\n`;
   bill += `  總下注池：$${fmt(res.totalPool)}\n`;
   bill += `├────────────────────────────────────────┤\n`;
-  bill += `  【幹部收益拆算】\n`;
+  bill += `  【莊家收益拆算】\n`;
   const hostSign = res.hostNet >= 0 ? '+' : '';
-  bill += `  💰 幹部抽水收益(Rake)：+$${fmt(res.hostRake)}\n`;
-  bill += `  📊 幹部總派彩淨收益 ：${hostSign}$${fmt(res.hostNet)}\n`;
+  bill += `  💰 莊家抽水收益(Rake)：+$${fmt(res.hostRake)}\n`;
+  bill += `  📊 莊家總派彩淨收益 ：${hostSign}$${fmt(res.hostNet)}\n`;
   bill += `├────────────────────────────────────────┤\n`;
   bill += `  【客人帳單明細 (贏+/輸-)】\n`;
   
@@ -638,7 +638,7 @@ function generateFormattedBill(state, pools) {
     });
   }
   bill += `└────────────────────────────────────────┘\n`;
-  bill += ` 💡 提示：請輸家客人將對應款項交付幹部或以 QR Code 轉帳。`;
+  bill += ` 💡 提示：請輸家客人將對應款項交付莊家或以 QR Code 轉帳。`;
   return bill;
 }
 
