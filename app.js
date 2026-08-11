@@ -1,7 +1,7 @@
 /**
  * BetPanel · 包廂熱場投注系統
- * 核心引擎 (Core Engine v3.0 - Commercial Edition)
- * 包含：業務邏輯、賠率引擎、點數錢包、兌換碼儲值、推薦分潤模組、極簡帳單與 Web Audio 音效
+ * 核心引擎 (Core Engine v3.1 - Single Session Edition)
+ * 包含：單場授權、固定賠率、無餘額活動點數、結算帳本與 Web Audio 音效
  */
 
 const firebaseConfig = {
@@ -21,8 +21,8 @@ const MAX_AUTO_ODDS = 50;
 const MIN_AUTO_ODDS = 1.01;
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
 const DEFAULT_RAKE = 0.05; // 預設 5% 抽水
-const ROOM_CREATION_COST = 100; // 建立一次包廂消耗 100 點數
-const REFERRAL_REBATE_PERCENT = 0.20; // 下線儲值/消費 20% 返利給上線莊家
+const SESSION_PRICE_TWD = 200;
+const SESSION_DURATION_MS = 6 * 60 * 60 * 1000;
 
 const RAKE_OPTIONS = [0, 0.03, 0.05, 0.10]; // 0%, 3%, 5%, 10%
 
@@ -58,14 +58,6 @@ const NIGHTLIFE_PRESETS = [
   { id:'king_extreme', group:'king', title:'國王大冒險｜高強度', desc:'高強度僅作展示，禁止危險或強迫飲酒', category:'multi', options:[{label:'高難度表演',odds:4.00},{label:'團體接力',odds:4.00},{label:'即興挑戰',odds:4.00},{label:'安全替代任務',odds:4.00}] }
 ];
 
-// 預設示範兌換碼 (若資料庫尚無則自動初始化)
-const DEFAULT_REDEEM_CODES = {
-  'VIP888': { points: 5000, name: 'VIP尊榮儲值碼 (5000點)' },
-  'WELCOME1000': { points: 1000, name: '莊家首儲新手禮 (1000點)' },
-  'NIGHTCLUB5000': { points: 5000, name: '夜店專案儲值碼 (5000點)' },
-  'BETPANEL2026': { points: 2000, name: '官方禮包碼 (2000點)' }
-};
-
 /* =========================================
  * 1. 基礎工具 (Utility)
  * ========================================= */
@@ -85,17 +77,14 @@ function fmt(n) {
   return Number(n).toLocaleString('en-US');
 }
 
-function uid() {
-  return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+function roundPoints(n) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return 0;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function generateReferralCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let r = 'REF-';
-  for (let i = 0; i < 4; i++) {
-    r += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return r;
+function uid() {
+  return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 }
 
 /* =========================================
@@ -165,7 +154,7 @@ const SoundEngine = {
 };
 
 /* =========================================
- * 3. 莊家點數錢包與推薦分潤模組 (Host Wallet & Referral System)
+ * 3. 莊家工作階段識別 (Host Session Identity)
  * ========================================= */
 
 function createHostProfile(hostName, hostId = null) {
@@ -173,10 +162,6 @@ function createHostProfile(hostName, hostId = null) {
   return {
     hostId: id,
     hostName: hostName || '尊榮莊家',
-    credits: 1000, // 初始贈送 1000 點開房點數
-    referralCode: generateReferralCode(),
-    referredBy: null,
-    totalRebate: 0,
     createdAt: Date.now()
   };
 }
@@ -202,7 +187,7 @@ function generateRoomPin() {
   return res;
 }
 
-function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet = DEFAULT_MAX_BET, hostId = null) {
+function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet = DEFAULT_MAX_BET, hostId = null, activatedAt = Date.now()) {
   return {
     code: generateRoomCode(),
     hostName: hostName || '包廂莊家',
@@ -210,7 +195,13 @@ function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet
     roomTitle: roomTitle || 'VIP 尊榮投注包廂',
     hostPin: generateRoomPin(),
     rakePercent: Number(rakePercent),
-    createdAt: Date.now(),
+    status: 'active',
+    accessMode: 'demo',
+    billingMode: 'single_room_6h_twd_200',
+    sessionPriceTwd: SESSION_PRICE_TWD,
+    activatedAt,
+    expiresAt: activatedAt + SESSION_DURATION_MS,
+    createdAt: activatedAt,
     maxBet: Number(maxBet),
     markets: {},
     bets: {}
@@ -219,6 +210,15 @@ function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet
 
 function roomDbPath(roomCode) {
   return `${DB_PATH}/rooms/${roomCode.toUpperCase()}`;
+}
+
+function isSessionExpired(state, at = Date.now()) {
+  const expiresAt = Number(state && state.expiresAt);
+  return Number.isFinite(expiresAt) && expiresAt > 0 && at >= expiresAt;
+}
+
+function isSessionActive(state, at = Date.now()) {
+  return !!state && state.status !== 'archived' && !isSessionExpired(state, at);
 }
 
 /* =========================================
@@ -232,8 +232,15 @@ function normalize(raw) {
   const state = {
     hostName: config.hostName || raw.hostName || '包廂莊家',
     hostId: config.hostId || raw.hostId || '',
+    hostUid: config.hostUid || raw.hostUid || '',
     roomTitle: config.roomTitle || raw.roomTitle || 'VIP 尊榮投注包廂',
     hostPin: config.pin || raw.hostPin || '',
+    status: config.status || raw.status || 'active',
+    accessMode: config.accessMode || raw.accessMode || 'legacy',
+    sessionPriceTwd: Number.isFinite(Number(config.sessionPriceTwd)) ? Number(config.sessionPriceTwd) : null,
+    activatedAt: Number(config.activatedAt || raw.activatedAt || config.createdAt || raw.createdAt) || null,
+    expiresAt: Number(config.expiresAt || raw.expiresAt) || null,
+    archivedAt: config.archivedAt || raw.archivedAt || null,
     rakePercent: typeof config.rake === 'number' ? (config.rake / 100) : (typeof raw.rakePercent === 'number' ? raw.rakePercent : DEFAULT_RAKE),
     createdAt: config.createdAt || raw.createdAt || Date.now(),
     maxBet: typeof config.maxBet === 'number' ? config.maxBet : (typeof raw.maxBet === 'number' ? raw.maxBet : DEFAULT_MAX_BET),
@@ -403,7 +410,7 @@ function payoutForBet(bet, market) {
   const grossProfit = Math.max(0, amount * betOdds(bet) - amount);
   const rake = Math.max(0, Math.min(1, Number(market && market.rakePercent) || 0));
   // 抽水只從中獎淨利扣除；本金完整返還，賠率在下注時固定。
-  return amount + grossProfit * (1 - rake);
+  return roundPoints(amount + grossProfit * (1 - rake));
 }
 
 function bankerNetIfWins(state, pools, market, winOptId) {
@@ -487,15 +494,22 @@ function effectiveMaxBet(state, market) {
 
 function validateBetAmount(rawAmount, maxBet) {
   const amount = Number(rawAmount);
-  if (isNaN(amount) || amount <= 0) return { ok: false, reason: '請輸入有效的下注金額' };
-  if (!Number.isInteger(amount)) return { ok: false, reason: '金額必須為整數' };
-  if (amount > maxBet) return { ok: false, reason: `單注金額不能超過 $${fmt(maxBet)}` };
+  if (isNaN(amount) || amount <= 0) return { ok: false, reason: '請輸入有效的活動點數' };
+  if (!Number.isInteger(amount)) return { ok: false, reason: '活動點數必須為整數' };
+  if (amount > maxBet) return { ok: false, reason: `單注活動點數不能超過 ${fmt(maxBet)} Pts` };
   return { ok: true };
 }
 
 function sameNickname(n1, n2) {
   if (!n1 || !n2) return false;
   return n1.trim().toLowerCase() === n2.trim().toLowerCase();
+}
+
+function betBelongsTo(bet, authUid, bettorId) {
+  if (!bet) return false;
+  if (bet.bettorUid) return !!authUid && bet.bettorUid === authUid;
+  if (bet.bettorId) return !!bettorId && bet.bettorId === bettorId;
+  return false;
 }
 
 function getRecentActivity(state, limit = 10) {
@@ -524,9 +538,13 @@ function reportByBettor(state, pools) {
   const map = {};
   
   for (const bet of state.bets) {
-    const key = bet.name || bet.bettorId;
+    const identity = bet.bettorUid
+      ? `uid:${bet.bettorUid}`
+      : (bet.bettorId ? `id:${bet.bettorId}` : `legacy:${bet.name || 'unknown'}`);
+    const displayName = bet.name || bet.bettorId || '神秘玩家';
+    const key = identity;
     if (!map[key]) {
-      map[key] = { name: key, totalStaked: 0, staked: 0, winCount: 0, loseCount: 0, pendingCount: 0, profit: 0, bankerNet: 0, bets: 0 };
+      map[key] = { identity, name: displayName, totalStaked: 0, staked: 0, winCount: 0, loseCount: 0, pendingCount: 0, profit: 0, bankerNet: 0, bets: 0 };
     }
     
     map[key].totalStaked += bet.amount;
@@ -574,7 +592,6 @@ function bankerExposure(state, pools) {
 }
 
 function roomSettlement(state, pools) {
-  const playersMap = {};
   let hostNet = 0;
   let hostRake = 0;
   let totalPool = 0;
@@ -590,19 +607,16 @@ function roomSettlement(state, pools) {
     totalPool += info.total;
   }
 
-  const bettors = reportByBettor(state, pools);
-  for (const b of bettors) {
-    if (b.name === state.hostName) continue;
-    playersMap[b.name] = {
+  const players = reportByBettor(state, pools).map(b => ({
+      identity: b.identity,
       name: b.name,
       staked: b.totalStaked,
       profit: b.profit,
       bets: b.bets
-    };
-  }
+    }));
 
   return {
-    players: Object.values(playersMap).sort((a, b) => b.profit - a.profit),
+    players: players.sort((a, b) => b.profit - a.profit),
     hostRake,
     hostNet,
     totalPool
@@ -620,12 +634,12 @@ function generateFormattedBill(state, pools) {
   bill += `  包廂名稱：${state.roomTitle || 'VIP包廂'}\n`;
   bill += `  莊家：${state.hostName || '莊家'}\n`;
   bill += `  結算時間：${nowStr}\n`;
-  bill += `  總下注池：$${fmt(res.totalPool)}\n`;
+  bill += `  總活動點數：${fmt(res.totalPool)} Pts\n`;
   bill += `├────────────────────────────────────────┤\n`;
   bill += `  【莊家收益拆算】\n`;
   const hostSign = res.hostNet >= 0 ? '+' : '';
-  bill += `  💰 莊家抽水收益(Rake)：+$${fmt(res.hostRake)}\n`;
-  bill += `  📊 莊家總派彩淨收益 ：${hostSign}$${fmt(res.hostNet)}\n`;
+  bill += `  💰 主持人點數抽成(Rake)：+${fmt(res.hostRake)} Pts\n`;
+  bill += `  📊 主持人點數淨結果　　：${hostSign}${fmt(res.hostNet)} Pts\n`;
   bill += `├────────────────────────────────────────┤\n`;
   bill += `  【客人帳單明細 (贏+/輸-)】\n`;
   
@@ -634,11 +648,11 @@ function generateFormattedBill(state, pools) {
   } else {
     res.players.forEach(p => {
       const sign = p.profit > 0 ? '👑 贏 +' : (p.profit < 0 ? '💔 輸 -' : '🤝 平  ');
-      bill += `  • ${p.name.padEnd(10, ' ')} : ${sign}$${fmt(Math.abs(p.profit))}\n`;
+      bill += `  • ${p.name.padEnd(10, ' ')} : ${sign}${fmt(Math.abs(p.profit))} Pts\n`;
     });
   }
   bill += `└────────────────────────────────────────┘\n`;
-  bill += ` 💡 提示：請輸家客人將對應款項交付莊家或以 QR Code 轉帳。`;
+  bill += ` 💡 本帳單只記錄活動點數；平台不提供換算、收款、付款或兌現。`;
   return bill;
 }
 
@@ -681,22 +695,23 @@ if (typeof module !== 'undefined' && module.exports) {
     MIN_AUTO_ODDS,
     QUICK_AMOUNTS,
     DEFAULT_RAKE,
-    ROOM_CREATION_COST,
-    REFERRAL_REBATE_PERCENT,
+    SESSION_PRICE_TWD,
+    SESSION_DURATION_MS,
     RAKE_OPTIONS,
     CATEGORIES,
     NIGHTLIFE_PRESETS,
-    DEFAULT_REDEEM_CODES,
     SoundEngine,
     esc,
     fmt,
+    roundPoints,
     uid,
-    generateReferralCode,
     createHostProfile,
     generateRoomCode,
     generateRoomPin,
     createRoom,
     roomDbPath,
+    isSessionExpired,
+    isSessionActive,
     normalize,
     buildPools,
     poolOf,
@@ -707,6 +722,7 @@ if (typeof module !== 'undefined' && module.exports) {
     buildDuelMarket,
     buildCustomMarket,
     betOdds,
+    payoutForBet,
     bankerNetIfWins,
     worstCase,
     settleInfo,
@@ -714,6 +730,7 @@ if (typeof module !== 'undefined' && module.exports) {
     effectiveMaxBet,
     validateBetAmount,
     sameNickname,
+    betBelongsTo,
     getRecentActivity,
     reportByBettor,
     bankerExposure,

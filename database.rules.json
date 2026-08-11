@@ -1,45 +1,62 @@
 {
   "rules": {
     "betpanel": {
-      ".read": true,
+      ".read": false,
       "rooms": {
         "$roomId": {
           ".read": true,
           "config": {
-            ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('hostUid').val() == auth.uid) || (data.exists() && data.child('hostUid').val() == auth.uid && newData.child('hostUid').val() == data.child('hostUid').val() && (data.child('status').val() != 'archived' || newData.child('status').val() == 'archived')))"
+            ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('hostUid').val() == auth.uid && newData.child('status').val() == 'active' && newData.child('accessMode').val() == 'demo' && newData.child('billingMode').val() == 'single_room_6h_twd_200' && newData.child('sessionPriceTwd').val() == 200 && newData.child('activatedAt').isNumber() && newData.child('activatedAt').val() >= now - 300000 && newData.child('activatedAt').val() <= now + 300000 && newData.child('expiresAt').val() == newData.child('activatedAt').val() + 21600000) || (data.exists() && data.child('hostUid').val() == auth.uid && newData.child('hostUid').val() == data.child('hostUid').val() && data.child('status').val() != 'archived' && newData.child('accessMode').val() == data.child('accessMode').val() && newData.child('billingMode').val() == data.child('billingMode').val() && newData.child('sessionPriceTwd').val() == data.child('sessionPriceTwd').val() && newData.child('activatedAt').val() == data.child('activatedAt').val() && newData.child('expiresAt').val() == data.child('expiresAt').val() && (newData.child('status').val() != 'archived' || (newData.child('archivedAt').val() == now && newData.child('archivedByUid').val() == auth.uid))))",
+            ".validate": "newData.child('hostUid').isString() && (!newData.child('status').exists() || newData.child('status').val() == 'active' || newData.child('status').val() == 'archived') && (!newData.child('billingMode').exists() || newData.child('billingMode').val() == 'single_room_6h_twd_200')"
           },
           "updates": {
             "$updateId": {
-              ".write": "auth != null && !data.exists() && newData.exists() && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid",
-              ".validate": "newData.hasChildren(['message','type','actorUid','ts']) && newData.child('message').isString() && newData.child('actorUid').val() == auth.uid"
+              ".write": "auth != null && !data.exists() && newData.exists() && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid && root.child('betpanel/rooms/' + $roomId + '/config/status').val() != 'archived' && (!root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').exists() || root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').val() > now)",
+              ".validate": "newData.hasChildren(['message','type','actorUid','ts']) && newData.child('message').isString() && newData.child('message').val().length > 0 && newData.child('message').val().length <= 500 && (newData.child('type').val() == 'live' || newData.child('type').val() == 'result' || newData.child('type').val() == 'notice') && newData.child('actorUid').val() == auth.uid && newData.child('ts').isNumber() && newData.child('ts').val() == now"
             }
           },
           "markets": {
             "$marketId": {
-              ".write": "auth != null && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid && newData.exists() && (!data.exists() || data.child('settled').val() != true || (newData.child('settled').val() == true && newData.child('winnerId').val() == data.child('winnerId').val()))",
-              ".validate": "newData.hasChildren(['title','options'])"
+              ".write": "auth != null && !data.exists() && newData.exists() && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid && root.child('betpanel/rooms/' + $roomId + '/config/status').val() != 'archived' && (!root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').exists() || root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').val() > now) && newData.child('locked').val() == false && newData.child('settled').val() == false && newData.child('archived').val() != true && !newData.child('winnerId').exists()",
+              ".validate": "newData.hasChildren(['title','options','locked','settled']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('options').hasChildren() && newData.child('locked').isBoolean() && newData.child('settled').isBoolean() && ((!data.exists() && newData.child('locked').val() == false && newData.child('settled').val() == false && newData.child('archived').val() != true && !newData.child('winnerId').exists()) || (data.exists() && ((!root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').exists() || root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').val() > now) || newData.child('locked').val() == true) && data.child('archived').val() != true && ((data.child('settled').val() != true && ((newData.child('settled').val() != true && newData.child('archived').val() != true && !newData.child('winnerId').exists() && newData.child('settledAt').val() == data.child('settledAt').val() && newData.child('settledByUid').val() == data.child('settledByUid').val()) || (newData.child('settled').val() == true && newData.child('locked').val() == true && newData.child('archived').val() != true && newData.child('winnerId').isString() && data.child('options/' + newData.child('winnerId').val()).exists() && newData.child('resultLabel').val() == data.child('options/' + newData.child('winnerId').val() + '/label').val() && newData.child('settledAt').val() == now && newData.child('settledByUid').val() == auth.uid))) || (data.child('settled').val() == true && newData.child('settled').val() == true && newData.child('winnerId').val() == data.child('winnerId').val() && newData.child('resultLabel').val() == data.child('resultLabel').val() && newData.child('settledAt').val() == data.child('settledAt').val() && newData.child('settledByUid').val() == data.child('settledByUid').val() && newData.child('locked').val() == true && newData.child('archived').val() == true && newData.child('archivedAt').val() == now && newData.child('archivedByUid').val() == auth.uid))))",
+              "options": {
+                "$optionId": {
+                  ".validate": "newData.hasChildren(['label','odds']) && newData.child('label').isString() && newData.child('label').val().length > 0 && newData.child('odds').isNumber() && newData.child('odds').val() > 1"
+                }
+              },
+              "$stateField": {
+                ".write": "auth != null && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid && root.child('betpanel/rooms/' + $roomId + '/config/status').val() != 'archived' && root.child('betpanel/rooms/' + $roomId + '/markets/' + $marketId).exists() && ($stateField == 'locked' || $stateField == 'lockedAt' || $stateField == 'lockedByUid' || $stateField == 'settled' || $stateField == 'winnerId' || $stateField == 'resultLabel' || $stateField == 'settledAt' || $stateField == 'settledByUid' || $stateField == 'archived' || $stateField == 'archivedAt' || $stateField == 'archivedByUid')"
+              }
             }
           },
           "bets": {
             "$betId": {
-              ".write": "auth != null && !data.exists() && newData.exists() && newData.child('bettorUid').val() == auth.uid && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val()).exists() && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/locked').val() != true && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/settled').val() != true",
-              ".validate": "newData.hasChildren(['marketId','optionId','amount','oddsAtBet','bettorUid','ts']) && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && newData.child('oddsAtBet').isNumber() && newData.child('oddsAtBet').val() >= 1"
+              ".write": "auth != null && !data.exists() && newData.exists() && newData.child('bettorUid').val() == auth.uid && root.child('betpanel/rooms/' + $roomId + '/config/status').val() != 'archived' && (!root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').exists() || root.child('betpanel/rooms/' + $roomId + '/config/expiresAt').val() > now) && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val()).exists() && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/locked').val() != true && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/settled').val() != true && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/archived').val() != true && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/autoPrice').val() != true",
+              ".validate": "newData.hasChildren(['marketId','optionId','amount','oddsAtBet','bettorUid','ts']) && newData.child('marketId').isString() && newData.child('optionId').isString() && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/options/' + newData.child('optionId').val()).exists() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && newData.child('amount').val() % 1 == 0 && (root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/maxBet').isNumber() && root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/maxBet').val() > 0 ? newData.child('amount').val() <= root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/maxBet').val() : (root.child('betpanel/rooms/' + $roomId + '/config/maxBet').isNumber() && root.child('betpanel/rooms/' + $roomId + '/config/maxBet').val() > 0 ? newData.child('amount').val() <= root.child('betpanel/rooms/' + $roomId + '/config/maxBet').val() : newData.child('amount').val() <= 10000)) && newData.child('oddsAtBet').isNumber() && newData.child('oddsAtBet').val() == root.child('betpanel/rooms/' + $roomId + '/markets/' + newData.child('marketId').val() + '/options/' + newData.child('optionId').val() + '/odds').val() && newData.child('bettorUid').val() == auth.uid && newData.child('ts').isNumber() && newData.child('ts').val() == now"
             }
           },
           "auditLogs": {
             "$logId": {
-              ".write": "auth != null && !data.exists() && newData.exists() && newData.child('actorUid').val() == auth.uid",
-              ".validate": "newData.hasChildren(['action','actorUid','ts'])"
+              ".write": "auth != null && !data.exists() && newData.exists() && root.child('betpanel/rooms/' + $roomId + '/config/hostUid').val() == auth.uid",
+              ".validate": "newData.hasChildren(['action','actorUid','ts']) && newData.child('action').isString() && newData.child('action').val().length > 0 && newData.child('actorUid').val() == auth.uid && newData.child('ts').isNumber() && newData.child('ts').val() == now"
             }
           }
         }
       },
+      "roomAccess": {
+        ".read": false,
+        ".write": false
+      },
+      "privatePayments": {
+        ".read": false,
+        ".write": false
+      },
       "hosts": {
-        "$hostId": {
-          ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('authUid').val() == auth.uid && newData.child('credits').val() == 1000) || (data.child('authUid').val() == auth.uid && newData.child('authUid').val() == auth.uid && newData.child('credits').val() <= data.child('credits').val()) || (!data.child('authUid').exists() && newData.child('authUid').val() == auth.uid))"
-        }
+        ".read": false,
+        ".write": false
       },
       "redeemCodes": {
+        ".read": false,
         ".write": false
       }
     }

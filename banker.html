@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   
   <!-- Core Engine -->
-  <script src="app.js?v=role-banker1"></script>
+  <script src="app.js?v=single-session1"></script>
 </head>
 <body class="banker-mode">
 
@@ -27,7 +27,7 @@
     <header class="board-header banker">
       <div class="title-block">
         <div class="eyebrow">
-          <span class="eyebrow-badge">商業莊家版</span> BETPANEL VIP
+          <span class="eyebrow-badge">單場服務版</span> BETPANEL
         </div>
         <h1>莊家<span class="accent-b">後台中心</span></h1>
       </div>
@@ -43,40 +43,24 @@
         <span class="conn-dot"></span> 連線中...
       </div>
       <div class="conn-pill" style="border-color: var(--border-gold); background: rgba(240,194,66,0.1); color: var(--gold-bright); font-weight: bold;">
-        💎 莊家額度: <span id="hostCreditsDisplay" class="font-mono">1,000</span> Pts
+        ⏱ 單場 6 小時 · NT$200
       </div>
     </div>
 
     <!-- CREATE ROOM SECTION -->
     <div id="createRoomSection" style="display:none;">
       
-      <!-- WALLET & REDEEM CODE CARD -->
+      <!-- SINGLE SESSION SERVICE CARD -->
       <div class="card card-gold-glow form-card-centered mb-4">
-        <div class="d-flex justify-between align-center mb-3">
-          <div>
-            <h3 style="color:var(--gold-bright); margin:0;">💼 莊家點數錢包</h3>
-            <p class="text-dim" style="font-size:0.82rem; margin-top:2px;">開房每次消耗 100 點數 (新註冊免費贈送 1,000 點)</p>
-          </div>
-          <div class="font-mono text-gold" style="font-size:1.8rem; font-weight:800;" id="walletBalanceBig">
-            1,000 Pts
-          </div>
-        </div>
-        
-        <div class="form-group mb-2">
-          <label>輸入禮包 / 儲值兌換碼</label>
-          <div class="d-flex gap-2">
-            <input type="text" id="redeemCodeInput" class="input-control" placeholder="例如：VIP888, WELCOME1000" style="text-transform:uppercase;">
-            <button class="btn btn-gold" id="btnRedeem" style="white-space:nowrap;">💎 立即儲值</button>
-          </div>
-          <div class="text-dim mt-2" style="font-size:0.78rem;">
-            💡 測試可點擊輸入官方禮包碼：<span class="text-gold font-mono" style="cursor:pointer;" onclick="document.getElementById('redeemCodeInput').value='VIP888'">VIP888</span> (5000點) 或 <span class="text-gold font-mono" style="cursor:pointer;" onclick="document.getElementById('redeemCodeInput').value='WELCOME1000'">WELCOME1000</span> (1000點)
-          </div>
-        </div>
+        <h3 style="color:var(--gold-bright); margin:0 0 8px;">🎟️ 單次包廂使用權</h3>
+        <div class="font-mono text-gold" style="font-size:1.8rem; font-weight:800;">NT$200／6 小時</div>
+        <p class="text-dim" style="font-size:0.82rem; margin-top:8px;">一次購買只啟用一個包廂，不建立錢包、不儲值，也不販售玩家點數。</p>
+        <p style="font-size:0.8rem; margin-top:8px; color:var(--cyan-bright);">目前尚未串接付款；以下按鈕只會建立 6 小時測試場次，不代表已完成付款。</p>
       </div>
 
       <!-- CREATE ROOM CARD -->
       <div class="card card-cyan-glow form-card-centered">
-        <h2 style="font-size: 1.5rem; color: var(--cyan-bright); margin-bottom: 16px;">👑 建立包廂賭盤 (消耗 100 點)</h2>
+        <h2 style="font-size: 1.5rem; color: var(--cyan-bright); margin-bottom: 16px;">👑 建立 6 小時測試包廂</h2>
         
         <div class="form-group">
           <label>包廂顯示名稱</label>
@@ -97,12 +81,12 @@
         </div>
 
         <div class="form-group">
-          <label>單筆最高投注上限 ($)</label>
+          <label>單筆最高活動點數 (Pts)</label>
           <input type="number" id="maxBet" value="10000" min="100" step="500">
         </div>
 
         <button class="btn btn-cyan w-100 py-3 mt-3" id="btnCreateRoom" style="font-size: 1.05rem;">
-          ⚡ 扣除 100 點並建立包廂
+          ⚡ 測試啟用 6 小時包廂
         </button>
       </div>
     </div>
@@ -121,7 +105,8 @@
         
         <div class="text-dim mb-3" style="font-size:0.88rem;">
           莊家: <span id="infoHostName" class="text-cyan" style="font-weight:bold;"></span> │ 
-          設定抽水率: <span id="infoRake" class="text-gold" style="font-weight:bold;"></span>%
+          設定抽水率: <span id="infoRake" class="text-gold" style="font-weight:bold;"></span>% │
+          場次狀態: <span id="sessionTimeDisplay" class="text-cyan" style="font-weight:bold;">讀取中</span>
         </div>
         
         <div class="d-flex gap-2" style="justify-content:center; flex-wrap:wrap;">
@@ -133,20 +118,20 @@
       <!-- REAL-TIME RISK RADAR STRIP -->
       <div class="summary-strip">
         <div class="stat-card blue">
-          <div class="lbl">包廂總彩池</div>
-          <div id="statTotalPool" class="num">$0</div>
+          <div class="lbl">總活動點數</div>
+          <div id="statTotalPool" class="num">0 Pts</div>
         </div>
         <div class="stat-card blue">
-          <div class="lbl">莊家抽水收益</div>
-          <div id="statHostRake" class="num">+$0</div>
+          <div class="lbl">主持人點數抽成</div>
+          <div id="statHostRake" class="num">+0 Pts</div>
         </div>
         <div class="stat-card">
-          <div class="lbl">莊家已結算淨利</div>
-          <div id="statHostNet" class="num pos">$0</div>
+          <div class="lbl">主持人已結算點數</div>
+          <div id="statHostNet" class="num pos">0 Pts</div>
         </div>
         <div class="stat-card">
           <div class="lbl">未結算最大風險</div>
-          <div id="statWorstRisk" class="num neg">$0</div>
+          <div id="statWorstRisk" class="num neg">0 Pts</div>
         </div>
       </div>
 
@@ -166,7 +151,6 @@
       <div class="tabs">
         <button class="tab-btn active blue" data-target="tab-markets">🎯 盤口管理</button>
         <button class="tab-btn blue" data-target="tab-reports">📊 結算帳單與明細</button>
-        <button class="tab-btn blue" data-target="tab-referral">🤝 莊家推薦與分潤</button>
         <button class="tab-btn blue" data-target="tab-settings">⚙️ 設定維護</button>
       </div>
 
@@ -231,7 +215,7 @@
         <!-- VIP BILL GENERATOR CARD -->
         <div class="card card-gold-glow mb-4">
           <h3 class="mb-2" style="color:var(--gold-bright);">📜 一鍵包廂結算帳單</h3>
-          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出莊家抽水收益、莊家總派彩與每一位客人的中獎/輸贏款項。</p>
+          <p class="text-dim mb-3" style="font-size:0.85rem;">清晰列出主持人點數抽成、結算結果與每位玩家的活動點數損益；不代表任何法定貨幣。</p>
           
           <button class="btn btn-gold w-100 py-3 mb-3" id="btnGenerateBill" style="font-size: 1.05rem;">
             🧾 一鍵生成全包廂結算明細
@@ -257,7 +241,7 @@
                 <tr>
                   <th>客人暱稱</th>
                   <th class="text-right">注數</th>
-                  <th class="text-right">總投注金額</th>
+                  <th class="text-right">總投注點數</th>
                   <th class="text-right">客人結算損益</th>
                 </tr>
               </thead>
@@ -269,42 +253,7 @@
         </div>
       </div>
 
-      <!-- TAB 3: REFERRAL & REBATE MODULE -->
-      <div class="tab-content" id="tab-referral" style="display:none;">
-        <div class="card card-cyan-glow mb-4">
-          <h3 class="mb-2" style="color:var(--cyan-bright);">🤝 莊家推薦碼與點數分潤</h3>
-          <p class="text-dim mb-3" style="font-size:0.85rem;">推薦其他莊家使用 BetPanel，下線莊家儲值或消費時，您將自動獲得 <strong class="text-cyan">20% 點數返利</strong>！</p>
-          
-          <div class="stat-box mb-3">
-            <div class="stat-label">您的專屬推薦碼</div>
-            <div class="d-flex justify-between align-center">
-              <div class="font-mono text-cyan" style="font-size:1.8rem; font-weight:800;" id="myReferralCodeDisplay">REF-XXXX</div>
-              <button class="btn btn-cyan" onclick="copyReferralCode()">📋 複製推薦碼</button>
-            </div>
-          </div>
-          
-          <div class="summary-strip mb-3">
-            <div class="stat-card blue">
-              <div class="lbl">累計推廣返利</div>
-              <div class="num text-green" id="referralRebateEarned">0 Pts</div>
-            </div>
-            <div class="stat-card blue">
-              <div class="lbl">我的上級莊家</div>
-              <div class="num text-dim" style="font-size:1.1rem;" id="uplineHostDisplay">無</div>
-            </div>
-          </div>
-
-          <div class="form-group mb-2">
-            <label>綁定上線莊家推薦碼 (填寫獲得額外 200 點)</label>
-            <div class="d-flex gap-2">
-              <input type="text" id="uplineCodeInput" class="input-control" placeholder="例如：REF-8888" style="text-transform:uppercase;">
-              <button class="btn btn-outline" id="btnBindUpline">綁定上線</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB 4: SETTINGS -->
+      <!-- TAB 3: SETTINGS -->
       <div class="tab-content" id="tab-settings" style="display:none;">
         <div class="card" style="border-color: var(--red);">
           <h3 class="mb-2" style="color:var(--red-bright);">🚨 危險操作區</h3>
@@ -345,7 +294,6 @@
 
     const ROOM_KEY = 'bp-host-room';
     const PIN_KEY = 'bp-host-pin';
-    const HOST_ID_KEY = 'bp-host-id';
     
     let db = null;
     let roomCode = null;
@@ -354,6 +302,12 @@
     let state = null;
     let pools = {};
     let hostProfile = null;
+    let sessionClockTimer = null;
+    let serverTimeOffset = 0;
+
+    function serverNow() {
+      return Date.now() + serverTimeOffset;
+    }
 
     function updateSoundButtonUI() {
       const btn = document.getElementById('soundToggleBtn');
@@ -389,14 +343,18 @@
 
     function writeAuditLog(action, details = {}) {
       if (!roomRef) return Promise.resolve();
-      return roomRef.child('auditLogs').push({
+      return roomRef.child('auditLogs').push(buildAuditLog(action, details));
+    }
+
+    function buildAuditLog(action, details = {}) {
+      return {
         action,
         actorId: authUser?.uid || hostProfile?.hostId || 'host-client',
         actorName: hostProfile?.hostName || state?.hostName || '莊家',
         actorUid: authUser?.uid || '',
         ts: firebase.database.ServerValue.TIMESTAMP,
         ...details
-      });
+      };
     }
     function renderRakeOptions() {
       const c = document.getElementById('rakeOptionsContainer');
@@ -425,6 +383,10 @@
       }
       db = firebase.database();
       auth = firebase.auth();
+      db.ref('.info/serverTimeOffset').on('value', snap => {
+        serverTimeOffset = Number(snap.val()) || 0;
+        updateSessionTimeUI();
+      });
       try {
         const credential = await auth.signInAnonymously();
         authUser = credential.user;
@@ -436,105 +398,11 @@
       }
       await initHostProfile();
       checkSavedRoom();
-      setupRedeemListener();
     }
 
     async function initHostProfile() {
-      let hostId = localStorage.getItem(HOST_ID_KEY);
-      if (!hostId) {
-        hostProfile = createHostProfile('尊榮莊家');
-        hostProfile.authUid = authUser.uid;
-        hostId = hostProfile.hostId;
-        localStorage.setItem(HOST_ID_KEY, hostId);
-        await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
-      } else {
-        const snap = await db.ref(`betpanel/hosts/${hostId}`).once('value');
-        if (snap.exists()) {
-          hostProfile = snap.val();
-          if (!hostProfile.authUid) {
-            hostProfile.authUid = authUser.uid;
-            await db.ref(`betpanel/hosts/${hostId}/authUid`).set(authUser.uid);
-          }
-        } else {
-          hostProfile = createHostProfile('尊榮莊家', hostId);
-          hostProfile.authUid = authUser.uid;
-          await db.ref(`betpanel/hosts/${hostId}`).set(hostProfile);
-        }
-      }
-      updateHostWalletUI();
-    }
-
-    function updateHostWalletUI() {
-      if (!hostProfile) return;
-      const creditsStr = fmt(hostProfile.credits) + ' Pts';
-      document.getElementById('hostCreditsDisplay').textContent = fmt(hostProfile.credits);
-      document.getElementById('walletBalanceBig').textContent = creditsStr;
-      document.getElementById('myReferralCodeDisplay').textContent = hostProfile.referralCode || 'REF-8888';
-      document.getElementById('referralRebateEarned').textContent = fmt(hostProfile.totalRebate || 0) + ' Pts';
-      document.getElementById('uplineHostDisplay').textContent = hostProfile.referredBy || '無';
-    }
-
-    function setupRedeemListener() {
-      document.getElementById('btnRedeem').addEventListener('click', async () => {
-        const codeInput = document.getElementById('redeemCodeInput').value.trim().toUpperCase();
-        if (!codeInput) {
-          SoundEngine.playError();
-          return showToast('請輸入兌換碼', 'error');
-        }
-        
-        try {
-          const codeSnap = await db.ref(`betpanel/redeemCodes/${codeInput}`).once('value');
-          let pointsToAdd = 0;
-          let codeName = '';
-          
-          if (codeSnap.exists()) {
-            const data = codeSnap.val();
-            if (data.used) {
-              SoundEngine.playError();
-              return showToast('此兌換碼已被使用過', 'error');
-            }
-            pointsToAdd = data.points;
-            codeName = data.name || '儲值碼';
-            await db.ref(`betpanel/redeemCodes/${codeInput}`).update({ used: true, usedBy: hostProfile.hostId });
-          } else if (DEFAULT_REDEEM_CODES[codeInput]) {
-            pointsToAdd = DEFAULT_REDEEM_CODES[codeInput].points;
-            codeName = DEFAULT_REDEEM_CODES[codeInput].name;
-            await db.ref(`betpanel/redeemCodes/${codeInput}`).set({ used: true, usedBy: hostProfile.hostId, points: pointsToAdd });
-          } else {
-            SoundEngine.playError();
-            return showToast('無效的兌換碼', 'error');
-          }
-          
-          hostProfile.credits = (hostProfile.credits || 0) + pointsToAdd;
-          await db.ref(`betpanel/hosts/${hostProfile.hostId}/credits`).set(hostProfile.credits);
-          
-          if (hostProfile.referredBy) {
-            const rebateAmt = Math.floor(pointsToAdd * REFERRAL_REBATE_PERCENT);
-            if (rebateAmt > 0) {
-              const uplineSnap = await db.ref(`betpanel/hosts/${hostProfile.referredBy}`).once('value');
-              if (uplineSnap.exists()) {
-                const uplineData = uplineSnap.val();
-                const newCredits = (uplineData.credits || 0) + rebateAmt;
-                const newRebate = (uplineData.totalRebate || 0) + rebateAmt;
-                await db.ref(`betpanel/hosts/${hostProfile.referredBy}`).update({
-                  credits: newCredits,
-                  totalRebate: newRebate
-                });
-              }
-            }
-          }
-          
-          SoundEngine.playWin();
-          showToast(`🎉 成功兌換 [${codeName}]，獲得 +${fmt(pointsToAdd)} 點！`, 'success');
-          document.getElementById('redeemCodeInput').value = '';
-          updateHostWalletUI();
-          
-        } catch (e) {
-          console.error(e);
-          SoundEngine.playError();
-          showToast('兌換處理失敗', 'error');
-        }
-      });
+      hostProfile = createHostProfile('主辦方', authUser.uid);
+      hostProfile.authUid = authUser.uid;
     }
 
     function checkSavedRoom() {
@@ -542,8 +410,9 @@
       roomPin = localStorage.getItem(PIN_KEY);
       
       if(roomCode && roomPin) {
-        db.ref('betpanel/rooms/' + roomCode + '/config/pin').once('value').then(snap => {
-          if(snap.val() === roomPin) {
+        db.ref('betpanel/rooms/' + roomCode + '/config').once('value').then(snap => {
+          const config = snap.val();
+          if(config && config.pin === roomPin && config.hostUid === authUser.uid) {
             enterRoom(roomCode);
           } else {
             localStorage.removeItem(ROOM_KEY);
@@ -578,6 +447,31 @@
       roomRef = db.ref('betpanel/rooms/' + code);
       setupListeners();
       renderCreateForm();
+      if (sessionClockTimer) clearInterval(sessionClockTimer);
+      sessionClockTimer = setInterval(() => {
+        updateSessionTimeUI();
+        if (state) renderMarkets();
+      }, 30000);
+    }
+
+    function updateSessionTimeUI() {
+      const el = document.getElementById('sessionTimeDisplay');
+      if (!el || !state) return;
+      if (!state.expiresAt) {
+        el.textContent = '舊版房間（無期限）';
+        return;
+      }
+      const remaining = state.expiresAt - serverNow();
+      if (remaining <= 0) {
+        el.textContent = '已到期・僅可封盤／結算／封存';
+        el.style.color = 'var(--red-bright)';
+        return;
+      }
+      const totalMinutes = Math.ceil(remaining / 60000);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      el.textContent = `剩餘 ${hours} 小時 ${minutes} 分`;
+      el.style.color = 'var(--cyan-bright)';
     }
 
     document.getElementById('rakeRange').addEventListener('input', e => {
@@ -585,11 +479,6 @@
     });
 
     document.getElementById('btnCreateRoom').addEventListener('click', async () => {
-      if ((hostProfile.credits || 0) < ROOM_CREATION_COST) {
-        SoundEngine.playError();
-        return showToast(`點數不足 (需 ${ROOM_CREATION_COST} Pts)，請先輸入兌換碼儲值`, 'error');
-      }
-      
       const rTitle = document.getElementById('roomTitle').value.trim() || 'VIP 尊榮投注包廂';
       const hName = document.getElementById('hostName').value.trim();
       const rake = parseInt(document.getElementById('rakeRange').value);
@@ -600,10 +489,9 @@
         return showToast('請輸入莊家暱稱', 'error');
       }
       
-      const previousCredits = hostProfile.credits;
-      hostProfile.credits -= ROOM_CREATION_COST;
       const code = generateCode(6);
       const pin = generateCode(4);
+      const activatedAt = serverNow();
       
       const config = {
         roomTitle: rTitle,
@@ -615,17 +503,22 @@
         autoPrice: false,
         maxBet: mBet,
         pin: pin,
-        createdAt: Date.now()
+        status: 'active',
+        accessMode: 'demo',
+        billingMode: 'single_room_6h_twd_200',
+        sessionPriceTwd: SESSION_PRICE_TWD,
+        activatedAt,
+        expiresAt: activatedAt + SESSION_DURATION_MS,
+        createdAt: activatedAt
       };
       
       try {
-        await db.ref(`betpanel/hosts/${hostProfile.hostId}/credits`).set(hostProfile.credits);
         await db.ref('betpanel/rooms/' + code + '/config').set(config);
-        updateHostWalletUI();
+        hostProfile.hostName = hName;
         localStorage.setItem(ROOM_KEY, code);
         localStorage.setItem(PIN_KEY, pin);
         SoundEngine.playWin();
-        showToast('扣除 100 點，包廂建立成功！', 'success');
+        showToast('6 小時測試包廂建立成功！此操作不代表已付款。', 'success');
         enterRoom(code);
       } catch(e) {
         SoundEngine.playError();
@@ -637,35 +530,6 @@
       SoundEngine.playChip();
       const pUrl = window.location.href.replace('banker.html', 'index.html') + '?room=' + roomCode;
       navigator.clipboard.writeText(pUrl).then(() => showToast('已複製玩家鏈結到剪貼簿！', 'success'));
-    });
-
-    function copyReferralCode() {
-      SoundEngine.playChip();
-      const code = hostProfile ? hostProfile.referralCode : 'REF-8888';
-      navigator.clipboard.writeText(code).then(() => showToast('莊家專屬推薦碼已複製！', 'success'));
-    }
-
-    document.getElementById('btnBindUpline').addEventListener('click', async () => {
-      const code = document.getElementById('uplineCodeInput').value.trim().toUpperCase();
-      if (!code) {
-        SoundEngine.playError();
-        return showToast('請輸入推薦碼', 'error');
-      }
-      if (hostProfile.referredBy) {
-        SoundEngine.playError();
-        return showToast('您已綁定過上線莊家', 'error');
-      }
-      
-      hostProfile.referredBy = code;
-      hostProfile.credits = (hostProfile.credits || 0) + 200;
-      await db.ref(`betpanel/hosts/${hostProfile.hostId}`).update({
-        referredBy: code,
-        credits: hostProfile.credits
-      });
-      
-      SoundEngine.playWin();
-      showToast('成功綁定上線！獲得獎勵 +200 點', 'success');
-      updateHostWalletUI();
     });
 
     document.getElementById('btnCloseRoom').addEventListener('click', () => {
@@ -694,6 +558,8 @@
         
         document.getElementById('infoHostName').textContent = esc(state.hostName || '莊家');
         document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
+        hostProfile.hostName = state.hostName || hostProfile.hostName;
+        updateSessionTimeUI();
         
         renderMarkets();
         renderSituationFeedAdmin();
@@ -712,16 +578,27 @@
       document.getElementById('openMarketsWarning').style.display = openCount > 0 ? 'block' : 'none';
     }
 
-    document.getElementById('btnLockAll').addEventListener('click', () => {
+    document.getElementById('btnLockAll').addEventListener('click', async () => {
+      if (state?.status === 'archived') return showToast('包廂已封存，不能再操作盤口', 'error');
       SoundEngine.playLock();
       const updates = {};
       if(state && state.markets) {
         state.markets.forEach(m => {
-          if(!m.locked && !m.settled) updates['markets/'+m.id+'/locked'] = true;
+          if(!m.locked && !m.settled && !m.archived) {
+            updates['markets/'+m.id+'/locked'] = true;
+            updates['markets/'+m.id+'/lockedAt'] = firebase.database.ServerValue.TIMESTAMP;
+            updates['markets/'+m.id+'/lockedByUid'] = authUser.uid;
+          }
         });
       }
       if(Object.keys(updates).length > 0) {
-        roomRef.update(updates).then(() => showToast('已成功全部封盤！', 'success'));
+        try {
+          await roomRef.update(updates);
+          showToast('已成功全部封盤！', 'success');
+        } catch (error) {
+          console.error(error);
+          showToast('全部封盤失敗：' + error.message, 'error');
+        }
       }
     });
 
@@ -786,6 +663,8 @@
       const input = document.getElementById('situationInput');
       const message = input.value.trim();
       if (!roomRef || !message) return showToast('請輸入戰況內容', 'error');
+      if (state?.status === 'archived') return showToast('包廂已封存，不能再發布戰況', 'error');
+      if (isSessionExpired(state, serverNow())) return showToast('6 小時場次已到期，不能再發布戰況', 'error');
       try {
         await roomRef.child('updates').push({ message, type: document.getElementById('situationType').value, actorUid: authUser.uid, actorName: hostProfile?.hostName || '莊家', ts: firebase.database.ServerValue.TIMESTAMP });
         input.value = '';
@@ -819,6 +698,8 @@
     };
 
     document.getElementById('btnCreateMarket').addEventListener('click', () => {
+      if (state?.status === 'archived') return showToast('包廂已封存，不能再建立盤口', 'error');
+      if (isSessionExpired(state, serverNow())) return showToast('6 小時場次已到期，不能再建立盤口', 'error');
       const title = document.getElementById('marketTitle').value.trim();
       const desc = document.getElementById('marketDesc').value.trim();
       const priorK = 5000;
@@ -876,6 +757,10 @@
         document.getElementById('marketTitle').value = '';
         document.getElementById('marketDesc').value = '';
         renderCreateForm();
+      }).catch(error => {
+        console.error(error);
+        SoundEngine.playError();
+        showToast('開盤失敗：' + error.message, 'error');
       });
     });
 
@@ -894,12 +779,16 @@
         const totalP = marketTotal(pools, m);
         
         const card = document.createElement('div');
+        const isArchived = !!m.archived || state.status === 'archived';
+        const sessionExpired = isSessionExpired(state, serverNow());
         card.className = `card ${m.settled ? 'settled-card' : ''}`;
         card.id = `market-admin-${m.id}`;
         
-        let statusBadge = m.settled ? '<span class="badge badge-settled">🏁 已派彩結算</span>' :
+        let statusBadge = isArchived ? '<span class="badge badge-locked">📦 已封存</span>' :
+                          (m.settled ? '<span class="badge badge-settled">🏁 已派彩結算</span>' :
                           (m.locked ? '<span class="badge badge-locked">🔒 已封盤</span>' : 
-                                      '<span class="badge badge-open">🟢 開放下注中</span>');
+                          (sessionExpired ? '<span class="badge badge-locked">⏱ 場次已到期</span>' :
+                                      '<span class="badge badge-open">🟢 開放下注中</span>')));
                                       
         let html = `
           <div class="d-flex justify-between align-center mb-2">
@@ -910,7 +799,7 @@
             <div>${statusBadge}</div>
           </div>
           <div class="text-dim mb-3" style="font-size:0.82rem;">
-            總彩池: <strong class="text-gold">$${fmt(totalP)}</strong> │ 莊家抽水: ${m.rake || (state.rakePercent * 100)}%
+            總活動點數: <strong class="text-gold">${fmt(totalP)} Pts</strong> │ 主持人點數抽成: ${m.rake || (state.rakePercent * 100)}%
           </div>
         `;
         
@@ -931,8 +820,8 @@
                 ${isWinner ? '👑 ' : ''}${esc(opt.label)}
               </div>
               <div style="flex:1; text-align:center;" class="font-mono text-cyan">x${cOdds}</div>
-              <div style="flex:1; text-align:right; font-size:0.85rem;" class="text-dim">$${fmt(pAmt)}</div>
-              <div style="flex:1; text-align:right; font-size:0.85rem; color:${netColor}; font-weight:bold;" class="font-mono">${netSign}$${fmt(net)}</div>
+              <div style="flex:1; text-align:right; font-size:0.85rem;" class="text-dim">${fmt(pAmt)} Pts</div>
+              <div style="flex:1; text-align:right; font-size:0.85rem; color:${netColor}; font-weight:bold;" class="font-mono">${netSign}${fmt(net)} Pts</div>
             </div>
           `;
         });
@@ -940,26 +829,30 @@
         
         html += `<div class="d-flex gap-2" style="flex-wrap:wrap;">`;
         
-        if(!m.settled) {
+        if(isArchived) {
+          html += `<span class="badge badge-locked" style="flex:1; text-align:center; padding:10px;">📦 已封存（不可再操作）</span>`;
+        } else if(!m.settled) {
           if(!m.locked) {
             html += `<button class="btn btn-danger m-lock-btn" data-id="${m.id}" style="flex:1;">🔒 封盤</button>`;
           } else {
-            html += `<button class="btn btn-outline m-unlock-btn" data-id="${m.id}" style="flex:1;">🔓 解鎖</button>`;
+            if(!sessionExpired) html += `<button class="btn btn-outline m-unlock-btn" data-id="${m.id}" style="flex:1;">🔓 解鎖</button>`;
             html += `<button class="btn btn-gold m-settle-btn" data-id="${m.id}" style="flex:1;">🏆 結算派彩</button>`;
           }
         } else {
           html += `<span class="badge badge-settled" style="flex:1; text-align:center; padding:10px;">🔒 已結算（不可撤銷）</span>`;
         }
-        html += `<button class="btn btn-danger m-del-btn" data-id="${m.id}" style="background:transparent; border:1px solid var(--red); color:var(--red-bright);">📦 封存盤口</button>`;
+        if(!isArchived && m.settled) {
+          html += `<button class="btn btn-danger m-del-btn" data-id="${m.id}" style="background:transparent; border:1px solid var(--red); color:var(--red-bright);">📦 封存盤口</button>`;
+        }
         
         html += `</div>`;
         
-        if(m.locked && !m.settled) {
+        if(!isArchived && m.locked && !m.settled) {
           html += `
             <div id="settle-panel-${m.id}" style="display:none; margin-top:14px; padding:14px; background:#0c0e18; border:1px solid var(--gold); border-radius:8px;">
               <h5 class="text-gold mb-2">選擇獲勝選項進行派彩：</h5>
               <select id="settle-sel-${m.id}" class="input-control mb-3">
-                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝莊家損益: $${fmt(bankerNetIfWins(state, pools, m, o.id))})</option>`).join('')}
+                ${m.options.map(o => `<option value="${o.id}">${esc(o.label)} (若獲勝主持人點數損益: ${fmt(bankerNetIfWins(state, pools, m, o.id))} Pts)</option>`).join('')}
               </select>
               <button class="btn btn-gold w-100 m-confirm-settle-btn" data-id="${m.id}">✅ 確認宣佈獲勝並即時派彩</button>
             </div>
@@ -970,13 +863,31 @@
         container.appendChild(card);
       });
       
-      document.querySelectorAll('.m-lock-btn').forEach(btn => btn.onclick = e => {
+      document.querySelectorAll('.m-lock-btn').forEach(btn => btn.onclick = async e => {
         SoundEngine.playLock();
-        roomRef.child('markets').child(e.target.dataset.id).child('locked').set(true);
+        try {
+          await roomRef.child('markets').child(e.target.dataset.id).update({
+            locked: true,
+            lockedAt: firebase.database.ServerValue.TIMESTAMP,
+            lockedByUid: authUser.uid
+          });
+        } catch (error) {
+          console.error(error);
+          showToast('封盤失敗：' + error.message, 'error');
+        }
       });
-      document.querySelectorAll('.m-unlock-btn').forEach(btn => btn.onclick = e => {
+      document.querySelectorAll('.m-unlock-btn').forEach(btn => btn.onclick = async e => {
         SoundEngine.playChip();
-        roomRef.child('markets').child(e.target.dataset.id).child('locked').set(false);
+        try {
+          await roomRef.child('markets').child(e.target.dataset.id).update({
+            locked: false,
+            lockedAt: null,
+            lockedByUid: null
+          });
+        } catch (error) {
+          console.error(error);
+          showToast('解鎖失敗：' + error.message, 'error');
+        }
       });
       document.querySelectorAll('.m-settle-btn').forEach(btn => btn.onclick = e => {
         SoundEngine.playChip();
@@ -984,45 +895,62 @@
         const panel = document.getElementById('settle-panel-' + id);
         if(panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       });
-      document.querySelectorAll('.m-confirm-settle-btn').forEach(btn => btn.onclick = e => {
+      document.querySelectorAll('.m-confirm-settle-btn').forEach(btn => btn.onclick = async e => {
         const id = e.target.dataset.id;
         const winId = document.getElementById('settle-sel-' + id).value;
         if(confirm('確定要宣佈此選項獲勝？結算後系統將依照鎖定賠率進行派彩。')) {
-          roomRef.child('markets').child(id).update({
-            settled: true,
-            winnerId: winId
-          }).then(() => {
-            writeAuditLog('market_settled', { marketId: id, winnerId: winId });
+          const market = state.markets.find(item => item.id === id);
+          const winner = market?.options.find(option => option.id === winId);
+          const auditKey = roomRef.child('auditLogs').push().key;
+          const updates = {};
+          updates[`markets/${id}/settled`] = true;
+          updates[`markets/${id}/winnerId`] = winId;
+          updates[`markets/${id}/resultLabel`] = winner?.label || winId;
+          updates[`markets/${id}/settledAt`] = firebase.database.ServerValue.TIMESTAMP;
+          updates[`markets/${id}/settledByUid`] = authUser.uid;
+          updates[`auditLogs/${auditKey}`] = buildAuditLog('market_settled', { marketId: id, winnerId: winId });
+          try {
+            await roomRef.update(updates);
             SoundEngine.playWin();
             showToast('結算成功！', 'success');
-          });
+          } catch (error) {
+            console.error(error);
+            SoundEngine.playError();
+            showToast('結算失敗：' + error.message, 'error');
+          }
         }
       });
-      document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = e => {
+      document.querySelectorAll('.m-del-btn').forEach(btn => btn.onclick = async e => {
         const id = e.target.dataset.id;
         if(confirm('盤口將被封存並停止操作，下注與結算紀錄不會刪除。確定繼續？')) {
-          roomRef.child('markets').child(id).update({
-            locked: true,
-            archived: true,
-            archivedAt: firebase.database.ServerValue.TIMESTAMP
-          }).then(() => {
-            writeAuditLog('market_archived', { marketId: id });
+          const auditKey = roomRef.child('auditLogs').push().key;
+          const updates = {};
+          updates[`markets/${id}/locked`] = true;
+          updates[`markets/${id}/archived`] = true;
+          updates[`markets/${id}/archivedAt`] = firebase.database.ServerValue.TIMESTAMP;
+          updates[`markets/${id}/archivedByUid`] = authUser.uid;
+          updates[`auditLogs/${auditKey}`] = buildAuditLog('market_archived', { marketId: id });
+          try {
+            await roomRef.update(updates);
             showToast('盤口已封存，原始紀錄保留', 'success');
-          });
+          } catch (error) {
+            console.error(error);
+            showToast('封存盤口失敗：' + error.message, 'error');
+          }
         }
       });
     }
     function updateStats() {
       const exp = bankerExposure(state, pools);
-      document.getElementById('statTotalPool').textContent = '$' + fmt(exp.staked);
-      document.getElementById('statHostRake').textContent = '+$' + fmt(exp.totalRakeEarned);
+      document.getElementById('statTotalPool').textContent = fmt(exp.staked) + ' Pts';
+      document.getElementById('statHostRake').textContent = '+' + fmt(exp.totalRakeEarned) + ' Pts';
       
       const hostNetEl = document.getElementById('statHostNet');
       const sign = exp.settledNet >= 0 ? '+' : '';
-      hostNetEl.textContent = sign + '$' + fmt(exp.settledNet);
+      hostNetEl.textContent = sign + fmt(exp.settledNet) + ' Pts';
       hostNetEl.className = 'num ' + (exp.settledNet >= 0 ? 'pos' : 'neg');
       
-      document.getElementById('statWorstRisk').textContent = '$' + fmt(Math.abs(exp.worstOpen));
+      document.getElementById('statWorstRisk').textContent = fmt(Math.abs(exp.worstOpen)) + ' Pts';
     }
 
     function renderReports() {
@@ -1038,8 +966,8 @@
           <tr>
             <td style="font-weight:600; color:#fff;">${esc(p.name)}</td>
             <td class="text-right text-dim">${p.bets}</td>
-            <td class="text-right font-mono text-dim">$${fmt(p.staked)}</td>
-            <td class="text-right font-mono" style="color:${color}; font-weight:bold;">${sign}$${fmt(pnl)}</td>
+            <td class="text-right font-mono text-dim">${fmt(p.staked)} Pts</td>
+            <td class="text-right font-mono" style="color:${color}; font-weight:bold;">${sign}${fmt(pnl)} Pts</td>
           </tr>
         `;
       });
@@ -1060,19 +988,19 @@
         </div>
         <div class="summary-strip mb-3">
           <div class="stat-card blue">
-            <div class="lbl">總下注池</div>
-            <div class="num text-gold">$${fmt(res.totalPool)}</div>
+            <div class="lbl">總活動點數</div>
+            <div class="num text-gold">${fmt(res.totalPool)} Pts</div>
           </div>
           <div class="stat-card blue">
-            <div class="lbl">莊家抽水收益</div>
-            <div class="num text-cyan">+$${fmt(res.hostRake)}</div>
+            <div class="lbl">主持人點數抽成</div>
+            <div class="num text-cyan">+${fmt(res.hostRake)} Pts</div>
           </div>
           <div class="stat-card">
-            <div class="lbl">莊家結算損益</div>
-            <div class="num ${res.hostNet >= 0 ? 'pos' : 'neg'}">${res.hostNet >= 0 ? '+' : ''}$${fmt(res.hostNet)}</div>
+            <div class="lbl">主持人點數損益</div>
+            <div class="num ${res.hostNet >= 0 ? 'pos' : 'neg'}">${res.hostNet >= 0 ? '+' : ''}${fmt(res.hostNet)} Pts</div>
           </div>
         </div>
-        <h5 class="text-dim mb-2">客人帳單款項明細：</h5>
+        <h5 class="text-dim mb-2">玩家活動點數明細：</h5>
         <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:8px 12px;">
       `;
       
@@ -1085,7 +1013,7 @@
           vHtml += `
             <div class="d-flex justify-between align-center py-2" style="border-bottom:1px solid rgba(255,255,255,0.06);">
               <span style="font-weight:bold; color:#fff;">${esc(p.name)}</span>
-              <span class="font-mono" style="color:${color}; font-weight:bold; font-size:1.05rem;">${sign}$${fmt(Math.abs(p.profit))}</span>
+              <span class="font-mono" style="color:${color}; font-weight:bold; font-size:1.05rem;">${sign}${fmt(Math.abs(p.profit))} Pts</span>
             </div>
           `;
         });
@@ -1108,17 +1036,27 @@
       });
     });
 
-    document.getElementById('btnResetRoom').addEventListener('click', () => {
-      const p = prompt('⚠️ 警告：這將清空包廂所有盤口與下注資料！\n若確認執行，請輸入大寫 "RESET"：');
-      if(p === 'RESET') {
-        roomRef.update({
-          markets: null,
-          bets: null
-        }).then(() => {
-          writeAuditLog('room_archived');
-          SoundEngine.playLock();
-          showToast('包廂已封存，下注與帳務紀錄仍然保留', 'success');
-        });
+    document.getElementById('btnResetRoom').addEventListener('click', async () => {
+      if (state?.status === 'archived') return showToast('此包廂已封存', 'info');
+      const unsettled = (state?.markets || []).filter(market => !market.settled && !market.archived);
+      if (unsettled.length > 0) {
+        return showToast(`仍有 ${unsettled.length} 個盤口尚未結算，請先完成結算`, 'error');
+      }
+      if(!confirm('封存後將停止建立盤口與發布戰況，但會完整保留下注、盤口及審計紀錄。確定繼續？')) return;
+
+      const auditKey = roomRef.child('auditLogs').push().key;
+      const updates = {};
+      updates['config/status'] = 'archived';
+      updates['config/archivedAt'] = firebase.database.ServerValue.TIMESTAMP;
+      updates['config/archivedByUid'] = authUser.uid;
+      updates[`auditLogs/${auditKey}`] = buildAuditLog('room_archived');
+      try {
+        await roomRef.update(updates);
+        SoundEngine.playLock();
+        showToast('包廂已封存，下注與帳務紀錄完整保留', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('封存包廂失敗：' + error.message, 'error');
       }
     });
 

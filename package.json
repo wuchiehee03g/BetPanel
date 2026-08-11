@@ -1,0 +1,12 @@
+{
+  "name": "betpanel",
+  "private": true,
+  "scripts": {
+    "check": "node --check app.js && node tests/check-inline-scripts.js && node --test tests/core.test.js",
+    "test:rules": "firebase emulators:exec --only database --project demo-betpanel \"node --test tests/rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.17.1"
+  }
+}

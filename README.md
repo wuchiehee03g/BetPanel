@@ -1,103 +1,87 @@
-# 👑 BetPanel VIP · 商業級包廂熱場投注系統
+# BetPanel · 單場包廂活動點數系統
 
-高質感現場即時下注娛樂平台，專為**酒店包廂、KTV、酒吧、夜店與私人聚會**設計。
+BetPanel 是給 KTV、酒吧與私人聚會使用的即時活動點數展示工具。目前仍是 Demo／測試階段，沒有玩家錢包、儲值、兌換、提領或現金派彩功能。
 
----
+## 產品模型
 
-## 🌟 商業售價亮點與視覺優化
+- 主辦方一次購買一個包廂使用權：預計 NT$200／6 小時。
+- 不販售或預先分配玩家點數。玩家直接輸入活動點數，系統只記錄盤口、選項、倍率與點數結果。
+- 活動點數沒有平台設定的台幣匯率，不可在平台儲值、轉讓、兌現或提領。
+- 參與者若在平台外另有約定，屬參與者自行處理；BetPanel 不提供收款、代付、催收、轉帳資訊或「已付款」標記。
+- 抽成是活動點數帳本中的計算項目，可設 0%；平台不收取盤口抽成，也不按投注量分潤。
 
-1. **Cyber-VIP 賭城黑金視覺與動態美學**：
-   - 採用毛玻璃 Glassmorphic 質感卡片、霓虹高對比顏色（Royal Gold `#ffd700` & Cyber Cyan `#00f0ff`）。
-   - 滿版光影動態背景、即時彩池占比進度條與光暈點亮動畫。
+新建 Demo 房間會記錄 `billingMode: single_room_6h_twd_200`、`accessMode: demo`、`activatedAt` 與 `expiresAt`。到期後停止新下注、新盤口與戰況，但仍可讀取資料，主辦方也可封盤、結算與封存。舊房沒有 `expiresAt`，會以 legacy 相容模式繼續運作，不會被回算為已到期。
 
-2. **直覺互動式 Option Card 與即時下注試算器**：
-   - 告別傳統選單！玩家直接點擊選項卡片，即時高亮選取。
-   - **實時回報計算**：輸入金額自動顯示「預估回報」與「預計純利」。
-   - **籌碼快捷按鈕**：`+$100`, `+$500`, `+$1,000`, `+$5,000` 快速點擊流暢下注。
+> 「測試啟用 6 小時」不代表已付款。目前沒有串接任何真實金流。
 
-3. **原生 Web Audio API 立體音效引擎**：
-   - 無需下載額外 MP3/音效檔，純 JS 擬真籌碼聲 (`playChip`)、下注確認聲 (`playBet`)、派彩歡慶聲 (`playWin`)、封盤鎖定聲 (`playLock`)，右上角隨時可一鍵切換靜音 (🔊 / 🔇)。
+## 付款整合邊界
 
-4. **即時跑馬燈動態 (Room Live Ticker)**：
-   - 即時顯示包廂內最新下注動態（例如：`🔥 小明 下注 $1,000 於 [吹牛對決 - 選手A] (賠率 x2.10)`），極大化現場熱度與競爭氛圍。
+正式付款不能由瀏覽器成功頁直接啟用房間。建議流程：
 
-5. **莊家一鍵開盤預設庫**：
-   - 內建分類盤口範本（妞妞、骰寶、21點、十八啦、5／10／15划拳、新加坡拳、海帶拳等）；地方玩法以莊家發布的盤口說明為準。
+1. 後端建立一筆固定 NT$200 的單場訂單，綁定主辦方 UID 與房間 ID。
+2. 使用者跳轉第三方支付商的代管付款頁。
+3. Cloud Functions 驗證支付商 webhook 的簽章、金額、幣別、付款狀態與重送冪等性。
+4. 驗證成功後，由 Admin SDK 寫入不可由前端修改的 `roomAccess/{roomId}` 六小時授權。
+5. 退款、拒付、人工補單與授權復原全部保留伺服器稽核紀錄。
 
-6. **莊家風險雷達 (Risk Radar) & VIP 格式化結算帳單**：
-   - **風控雷達**：即時監控總彩池、已結算收益與未結算最差曝險額 (Worst Exposure)。
-   - **一鍵帳單產出**：遊戲結束後產出乾淨俐落的 ASCII / 文字框結算單，1-Click 複製直接貼至 LINE / 微信群組。
+`roomAccess` 與 `privatePayments` 已在 Firebase Rules 中設為前端不可讀寫；真正串接前仍需實作 Cloud Functions、訂單資料庫及正式帳號／跨裝置復原機制。Anonymous Auth 若因清除網站資料而更換 UID，會失去原房間管理權，因此不適合直接承接正式已付款訂單。
 
----
+藍新金流官方雖允許自然人註冊，但其[商店管理規範](https://www.newebpay.com/website/Page/content/store_policy)把「賭場及博奕相關產業」列為禁止項目。BetPanel 在申請前應如實提供完整流程，先取得藍新業務／法遵的書面可承作確認，並完成台灣法律專業評估；在此之前不要接真實付款。
 
-## 🚀 系統架構
+## 現有功能
 
-- **前端引擎**：純 HTML5 / CSS3 / JavaScript (無第三方大框架依賴，載入速度 < 0.5s)
-- **資料庫**：Firebase Realtime Database (毫秒級多端即時同步)
-- **音效系統**：Web Audio API Oscillator (0 網路延遲、0 外加檔案)
-- **響應式**：Mobile-first 行動裝置優先，支援桌面多欄位風控面板
+- Firebase Anonymous Authentication
+- 玩家掃碼／輸入代碼加入包廂
+- 固定賠率、下注時鎖定 `oddsAtBet`
+- 無餘額活動點數輸入與公開帳本
+- 抽成只在結算時從中獎淨利扣除，本金不扣
+- 莊家風控、封盤、不可逆結算、封存與審計紀錄
+- 即時下注動態與莊家戰況推播
+- 骰子、划拳、喝酒挑戰、國王大冒險等快速盤口範本
 
----
+地方遊戲規則可能不同，範本只描述常見玩法，均以本局主辦方事前說明為準。
 
-## 📁 檔案結構
+## 資料與安全
 
+- 主要資料：`betpanel/rooms/{roomId}/{config,markets,bets,updates,auditLogs}`。
+- 玩家只能新增自己的下注；不能修改或刪除既有下注。
+- 主辦方只能管理 `hostUid` 與登入 UID 相同的房間。
+- 結算結果不可撤銷或更換；封存保留所有盤口、下注與審計資料。
+- `updates` 與 `auditLogs` 只能追加，不能修改或刪除。
+- 舊 `/hosts` 與 `/redeemCodes` 資料不會被本次改版刪除，但已停止前端使用，且 Rules 禁止公開讀取與前端寫入。
+- 房間目前為公開讀取，因此 `config.pin` 仍可被讀到；PIN 只用於本機後台辨識，不是授權邊界，寫入權限由 Firebase Auth UID 與 Rules 保護。
+
+## 主要檔案
+
+```text
+index.html                              玩家頁
+banker.html                             主辦方後台
+app.js                                 共用點數、賠率與結算邏輯
+style.css                              視覺樣式
+database.rules.json                    正式 Realtime Database Rules
+firebase.database.rules.example.json   同步的 Rules 範例
+tests/                                 核心與 Rules 回歸測試
 ```
-Betpanel/
-├── index.html    # 玩家頁面 (掃碼加入、互動選項卡片、下注試算器、個人注單)
-├── banker.html   # 莊家後台 (創房、一鍵預設開盤、風控雷達、帳單複製)
-├── app.js        # 核心引擎 (貝氏調盤演算法、音效引擎、正規化、帳單生成)
-├── style.css     # 奢華黑金視覺設計系統 (Glassmorphism, 霓虹光暈, 響應式佈局)
-└── README.md     # 系統商業說明文件
+
+## 本機驗證
+
+```powershell
+npm install
+npm run check
+npm run test:rules
 ```
 
----
+`npm run check` 會檢查 `app.js`、兩頁 inline script、核心測試及 Rules JSON。Rules 測試需要 Firebase Database Emulator 與 Java 21。
 
-## 🛠️ 本機測試與部署
+## 部署
 
-## 🔗 線上網址
+- GitHub Pages 玩家頁：<https://wuchiehee03g.github.io/BetPanel/index.html>
+- GitHub Pages 主辦方頁：<https://wuchiehee03g.github.io/BetPanel/banker.html>
+- GitHub Pages 由 `main` branch 自動部署。
+- Firebase Rules 只有在確認需求及測試通過後才執行：
 
-- 玩家頁面：[https://wuchiehee03g.github.io/BetPanel/index.html](https://wuchiehee03g.github.io/BetPanel/index.html)
-- 莊家頁面：[https://wuchiehee03g.github.io/BetPanel/banker.html](https://wuchiehee03g.github.io/BetPanel/banker.html)
-### 本機測試
-```bash
-npx serve .
+```powershell
+firebase.cmd deploy --only database --project betpanel-249dc
 ```
 
-- 玩家端網址：`http://localhost:3000/index.html`
-- 莊家端網址：`http://localhost:3000/banker.html`
-
-### 部署方式
-為靜態 Web 應用，可直接免費部署至：
-- **GitHub Pages**
-- **Netlify**
-- **Vercel**
-- 或任何標準 Web 靜態伺服器。
-
----
-
-### 重要營運原則
-
-- 預設採用開盤固定賠率，下注時鎖定；不再依彩池即時改價。
-- 抽水在結算時從「中獎淨利」扣除，本金不抽水，較容易向客人說明與對帳。
-- 「清房」應採封存，不要刪除房間、盤口或下注資料；否則會失去客人注單、爭議證據與莊家結算依據。
-- 目前是前端示範版，正式販售點數前必須加登入、伺服器端下注驗證、交易／兌換碼原子操作與資料庫規則。
-- 玩家端新增公開房間帳本，可交叉核對所有下注、賠率與已結算莊家損益。
-- irebase.database.rules.example.json 提供下注與審計紀錄的追加不可刪除規則範本；正式部署前仍須接上 Firebase Authentication。
-
-© 2026 BetPanel VIP Systems. All Rights Reserved.
-
-
-
-
-### 上線前爭議處理規則
-
-1. **下注成立標準**：只有伺服器收到且成功寫入的注單才算成立；玩家畫面顯示成功但沒有注單紀錄時，不算成立。
-2. **賠率標準**：以注單內的 `oddsAtBet` 為準；之後盤口賠率變化不影響已成立注單。
-3. **封盤標準**：以資料庫的 `lockedAt` 與最後一筆有效下注時間判定；封盤後新增下注一律拒絕。
-4. **結果標準**：莊家必須在封盤後提交結果，並保留 `settledAt`、`settledByUid`、結果說明與審計紀錄；結算後不得撤銷或改結果。
-5. **申訴期限**：結算後保留固定申訴窗口，例如 30 分鐘；申訴期間保留所有注單、盤口與審計紀錄。
-6. **異常處理**：結果無法確認、外部事件中止或資料庫異常時，盤口標記為 `void`，退回本金，不由莊家自行決定輸贏。
-7. **證據保存**：保存房間代碼、下注 UID、下注時間、賠率、封盤時間、結果與所有操作紀錄；不要只保存聊天截圖。
-8. **資金原則**：正式點數與派彩應由平台帳本或保證金管理，不允許莊家直接修改自己的點數。
-
-目前 Anonymous Auth 與測試 Rules 已接入；正式上線前仍需把點數兌換、下注與結算移至伺服器端交易，並移除舊資料的匿名 UID 遷移例外。
+本次改版不會自動部署 Rules、提交 Git 或推送 GitHub。
