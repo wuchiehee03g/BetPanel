@@ -566,6 +566,89 @@ h1 .accent-b { color: var(--cyan-bright); }
   color: var(--text-dim);
 }
 
+.plain-guide {
+  background: rgba(0, 240, 255, 0.055);
+  border: 1px solid rgba(0, 240, 255, 0.22);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.plain-guide-title {
+  color: var(--cyan-bright);
+  font-weight: 800;
+  margin-bottom: 9px;
+}
+
+.plain-guide p {
+  margin: 10px 0 4px;
+  line-height: 1.55;
+  font-size: 0.84rem;
+}
+
+.plain-guide small {
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.plain-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plain-steps span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.plain-steps b {
+  flex: 0 0 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--gold-gradient);
+  color: #080910;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.plain-steps-large {
+  margin: 12px 0 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.plain-steps-large span {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 0.88rem;
+}
+
+.is-readonly .preset-card {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.is-readonly input:disabled,
+.is-readonly select:disabled,
+.is-readonly button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 640px) {
+  .plain-steps,
+  .plain-steps-large {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Buttons (按鈕設計) */
 .btn {
   display: inline-flex;

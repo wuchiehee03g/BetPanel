@@ -88,8 +88,9 @@ test('valid fixed-odds bet succeeds and invalid bet variants fail', async () => 
   await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b3`), bet({ optionId: 'missing' })));
   await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b4`), bet({ oddsAtBet: 99 })));
   await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b5`), bet({ amount: 10.5 })));
-  await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b6`), bet({ amount: 1001 })));
+  await assertSucceeds(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b6`), bet({ amount: 250000 })));
   await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b7`), bet({ ts: 1 })));
+  await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b8`), bet({ amount: 9007199254740992 })));
   await assertFails(update(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b1`), { amount: 1 }));
   await assertFails(set(ref(playerDb, `betpanel/rooms/${ROOM_ID}/bets/b1`), null));
 });
@@ -279,8 +280,7 @@ function baseRoom() {
       hostUid: HOST_UID,
       hostName: '測試莊家',
       roomTitle: '測試包廂',
-      status: 'active',
-      maxBet: 1000
+      status: 'active'
     },
     markets: {
       m1: {

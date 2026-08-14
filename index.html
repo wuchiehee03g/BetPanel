@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=fixed-odds-ux1">
     
     <!-- Firebase SDK compat -->
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
     
     <!-- Core App Engine -->
-    <script src="app.js?v=single-session1"></script>
+    <script src="app.js?v=fixed-odds-ux1"></script>
 </head>
 <body>
 
@@ -101,6 +101,17 @@
                     <div class="form-group mb-3">
                         <label>玩家暱稱 (下注辨識名稱)</label>
                         <input type="text" id="nicknameInput" class="input-control" placeholder="請輸入您的暱稱 (例如: KTV歌神、阿豪)..." autocomplete="off">
+                    </div>
+
+                    <div class="plain-guide">
+                        <div class="plain-guide-title">30 秒看懂怎麼玩</div>
+                        <div class="plain-steps">
+                            <span><b>1</b>選一個你預測的結果</span>
+                            <span><b>2</b>輸入本次活動點數</span>
+                            <span><b>3</b>等莊家封盤並公布結果</span>
+                        </div>
+                        <p>例如輸入 100 Pts、固定賠率 x2.00、抽水 5%：答對返還 195 Pts（淨 +95）；答錯淨 −100 Pts。</p>
+                        <small>抽水只從答對的淨利扣除，本金不抽水；活動點數不代表法定貨幣。</small>
                     </div>
                     
                     <!-- Personal Statistics Strip -->
@@ -278,7 +289,11 @@
             db = firebase.database();            auth = firebase.auth();
             db.ref('.info/serverTimeOffset').on('value', snap => {
                 serverTimeOffset = Number(snap.val()) || 0;
-                if (state) renderAll();
+                refreshTimeSensitiveUI();
+            });
+            window.addEventListener('focus', refreshTimeSensitiveUI);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') refreshTimeSensitiveUI();
             });
             try {
                 const credential = await auth.signInAnonymously();
@@ -392,12 +407,7 @@
                 
                 document.getElementById('roomTitleDisplay').textContent = `${state.roomTitle} (#${currentRoom})`;
                 if (!sessionClockTimer) {
-                    sessionClockTimer = setInterval(() => {
-                        if (state) {
-                            renderAll();
-                            updateTicker();
-                        }
-                    }, 30000);
+                    sessionClockTimer = setInterval(refreshTimeSensitiveUI, 30000);
                 }
                 showMainApp();
                 renderAll();
@@ -472,6 +482,12 @@
             }
         }
 
+        function refreshTimeSensitiveUI() {
+            if (!state) return;
+            renderAll();
+            updateTicker();
+        }
+
         function renderSituationFeed() {
             const panel = document.getElementById('situationPanel');
             const feed = document.getElementById('situationFeed');
@@ -498,20 +514,23 @@
         function renderSessionStatus() {
             const el = document.getElementById('sessionStatusDisplay');
             if (!el || !state) return;
-            if (!state.expiresAt) {
-                el.textContent = '舊版房間 · 活動點數不代表金額，平台不提供收付或兌現';
+            if (state.status === 'archived') {
+                el.textContent = '包廂已封存 · 僅可查閱歷史與結算結果';
+                el.style.color = 'var(--red-bright)';
                 return;
             }
-            const remaining = state.expiresAt - serverNow();
-            if (remaining <= 0) {
+            const time = sessionTimeParts(state, serverNow());
+            if (time.legacy) {
+                el.textContent = '舊版房間 · 活動點數不代表金額，平台不提供收付或兌現';
+                el.style.color = 'var(--text-muted)';
+                return;
+            }
+            if (time.expired) {
                 el.textContent = '場次已到期 · 僅可查閱歷史與結算結果';
                 el.style.color = 'var(--red-bright)';
                 return;
             }
-            const totalMinutes = Math.ceil(remaining / 60000);
-            const hours = Math.floor(totalMinutes / 60);
-            const minutes = totalMinutes % 60;
-            el.textContent = `場次剩餘 ${hours} 小時 ${minutes} 分 · 活動點數不可兌現`;
+            el.textContent = `場次剩餘 ${time.hours} 小時 ${time.minutes} 分 · 活動點數不可兌現`;
             el.style.color = 'var(--text-muted)';
         }
 
@@ -850,7 +869,7 @@
                     return;
                 }
                 
-                const valRes = validateBetAmount(amount, effectiveMaxBet(freshState, freshM));
+                const valRes = validateBetAmount(amount);
                 if (!valRes.ok) {
                     SoundEngine.playError();
                     showToast(valRes.reason, 'error');
@@ -890,7 +909,17 @@
             } catch (err) {
                 console.error(err);
                 SoundEngine.playError();
-                showToast('網路錯誤，下注失敗', 'error');
+                const code = String(err && err.code || '').toLowerCase();
+                const message = String(err && err.message || '').toLowerCase();
+                if (code.includes('permission') || message.includes('permission_denied')) {
+                    showToast('下注被拒絕：請重新整理，確認場次尚未到期且盤口仍開放', 'error');
+                } else if (code.includes('auth') || message.includes('auth')) {
+                    showToast('登入狀態已失效：請重新整理頁面後再試', 'error');
+                } else if (navigator.onLine === false) {
+                    showToast('目前沒有網路連線，恢復連線後請再送出一次', 'error');
+                } else {
+                    showToast('連線暫時中斷，請確認網路後再試；系統不會重複送出', 'error');
+                }
             }
         }
 

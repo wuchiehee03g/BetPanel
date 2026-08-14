@@ -16,7 +16,6 @@ const firebaseConfig = {
 const DB_PATH = 'betpanel';
 const DEFAULT_ODDS = 2;
 const DEFAULT_PRIOR_K = 20000;
-const DEFAULT_MAX_BET = 10000;
 const MAX_AUTO_ODDS = 50;
 const MIN_AUTO_ODDS = 1.01;
 const QUICK_AMOUNTS = [100, 500, 1000, 5000];
@@ -187,7 +186,7 @@ function generateRoomPin() {
   return res;
 }
 
-function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet = DEFAULT_MAX_BET, hostId = null, activatedAt = Date.now()) {
+function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, hostId = null, activatedAt = Date.now()) {
   return {
     code: generateRoomCode(),
     hostName: hostName || '包廂莊家',
@@ -202,7 +201,6 @@ function createRoom(hostName, roomTitle = '', rakePercent = DEFAULT_RAKE, maxBet
     activatedAt,
     expiresAt: activatedAt + SESSION_DURATION_MS,
     createdAt: activatedAt,
-    maxBet: Number(maxBet),
     markets: {},
     bets: {}
   };
@@ -219,6 +217,27 @@ function isSessionExpired(state, at = Date.now()) {
 
 function isSessionActive(state, at = Date.now()) {
   return !!state && state.status !== 'archived' && !isSessionExpired(state, at);
+}
+
+function sessionTimeParts(state, at = Date.now()) {
+  const expiresAt = Number(state && state.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= 0) {
+    return { legacy: true, expired: false, totalMinutes: null, hours: 0, minutes: 0 };
+  }
+
+  const remaining = expiresAt - at;
+  if (remaining <= 0) {
+    return { legacy: false, expired: true, totalMinutes: 0, hours: 0, minutes: 0 };
+  }
+
+  const totalMinutes = Math.ceil(remaining / 60000);
+  return {
+    legacy: false,
+    expired: false,
+    totalMinutes,
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60
+  };
 }
 
 /* =========================================
@@ -243,7 +262,6 @@ function normalize(raw) {
     archivedAt: config.archivedAt || raw.archivedAt || null,
     rakePercent: typeof config.rake === 'number' ? (config.rake / 100) : (typeof raw.rakePercent === 'number' ? raw.rakePercent : DEFAULT_RAKE),
     createdAt: config.createdAt || raw.createdAt || Date.now(),
-    maxBet: typeof config.maxBet === 'number' ? config.maxBet : (typeof raw.maxBet === 'number' ? raw.maxBet : DEFAULT_MAX_BET),
     markets: [],
     bets: [],
     updates: []
@@ -346,7 +364,7 @@ function liveOdds(pools, market, optId) {
  * ========================================= */
 
 function buildDuelMarket(opts) {
-  const { nameA, nameB, rakePercent, priorK, maxBet, maxPerBettor, maxLiability } = opts;
+  const { nameA, nameB, rakePercent, priorK, maxPerBettor, maxLiability } = opts;
   const rake = typeof rakePercent === 'number' ? rakePercent : DEFAULT_RAKE;
   const impliedProb = 0.5;
   const initialOdds = 1 / impliedProb;
@@ -358,7 +376,6 @@ function buildDuelMarket(opts) {
     rakePercent: rake,
     autoPrice: false,
     priorK: priorK || DEFAULT_PRIOR_K,
-    maxBet: maxBet || null,
     maxPerBettor: maxPerBettor || null,
     maxLiability: maxLiability || null,
     locked: false,
@@ -373,7 +390,7 @@ function buildDuelMarket(opts) {
 }
 
 function buildCustomMarket(opts) {
-  const { title, desc, options, rakePercent, autoPrice, priorK, maxBet } = opts;
+  const { title, desc, options, rakePercent, autoPrice, priorK } = opts;
   
   const mOptions = options.map((opt, idx) => ({
     id: `opt${idx}`,
@@ -389,7 +406,6 @@ function buildCustomMarket(opts) {
     rakePercent: typeof rakePercent === 'number' ? rakePercent : DEFAULT_RAKE,
     autoPrice: autoPrice === true,
     priorK: priorK || DEFAULT_PRIOR_K,
-    maxBet: maxBet || null,
     locked: false,
     settled: false,
     winnerId: null,
@@ -487,16 +503,11 @@ function betOutcome(state, pools, bet) {
   }
 }
 
-function effectiveMaxBet(state, market) {
-  if (market && market.maxBet !== null && market.maxBet > 0) return market.maxBet;
-  return state.maxBet || DEFAULT_MAX_BET;
-}
-
-function validateBetAmount(rawAmount, maxBet) {
+function validateBetAmount(rawAmount) {
   const amount = Number(rawAmount);
-  if (isNaN(amount) || amount <= 0) return { ok: false, reason: '請輸入有效的活動點數' };
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, reason: '請輸入有效的活動點數' };
   if (!Number.isInteger(amount)) return { ok: false, reason: '活動點數必須為整數' };
-  if (amount > maxBet) return { ok: false, reason: `單注活動點數不能超過 ${fmt(maxBet)} Pts` };
+  if (!Number.isSafeInteger(amount)) return { ok: false, reason: '活動點數超出系統可安全處理範圍' };
   return { ok: true };
 }
 
@@ -690,7 +701,6 @@ if (typeof module !== 'undefined' && module.exports) {
     DB_PATH,
     DEFAULT_ODDS,
     DEFAULT_PRIOR_K,
-    DEFAULT_MAX_BET,
     MAX_AUTO_ODDS,
     MIN_AUTO_ODDS,
     QUICK_AMOUNTS,
@@ -712,6 +722,7 @@ if (typeof module !== 'undefined' && module.exports) {
     roomDbPath,
     isSessionExpired,
     isSessionActive,
+    sessionTimeParts,
     normalize,
     buildPools,
     poolOf,
@@ -727,7 +738,6 @@ if (typeof module !== 'undefined' && module.exports) {
     worstCase,
     settleInfo,
     betOutcome,
-    effectiveMaxBet,
     validateBetAmount,
     sameNickname,
     betBelongsTo,

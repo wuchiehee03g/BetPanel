@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=fixed-odds-ux1">
   
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -17,7 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   
   <!-- Core Engine -->
-  <script src="app.js?v=single-session1"></script>
+  <script src="app.js?v=fixed-odds-ux1"></script>
 </head>
 <body class="banker-mode">
 
@@ -56,6 +56,15 @@
         <div class="font-mono text-gold" style="font-size:1.8rem; font-weight:800;">NT$200／6 小時</div>
         <p class="text-dim" style="font-size:0.82rem; margin-top:8px;">一次購買只啟用一個包廂，不建立錢包、不儲值，也不販售玩家點數。</p>
         <p style="font-size:0.8rem; margin-top:8px; color:var(--cyan-bright);">目前尚未串接付款；以下按鈕只會建立 6 小時測試場次，不代表已完成付款。</p>
+        <div class="plain-guide" style="margin-top:14px; text-align:left;">
+          <div class="plain-guide-title">莊家只要做 4 件事</div>
+          <div class="plain-steps plain-steps-large">
+            <span><b>1</b>建立包廂</span>
+            <span><b>2</b>發布固定賠率盤口</span>
+            <span><b>3</b>封盤並結算</span>
+            <span><b>4</b>查看結算帳單</span>
+          </div>
+        </div>
       </div>
 
       <!-- CREATE ROOM CARD -->
@@ -78,11 +87,6 @@
           <div class="chip-group mb-2" id="rakeOptionsContainer"></div>
           <input type="range" id="rakeRange" min="0" max="15" value="5" step="1" style="width: 100%; accent-color: var(--cyan);">
           <p class="text-dim" style="font-size: 0.78rem; margin-top: 4px;">開盤固定賠率，結算時從中獎淨利計算抽水，並獨立統計莊家收益</p>
-        </div>
-
-        <div class="form-group">
-          <label>單筆最高活動點數 (Pts)</label>
-          <input type="number" id="maxBet" value="10000" min="100" step="500">
         </div>
 
         <button class="btn btn-cyan w-100 py-3 mt-3" id="btnCreateRoom" style="font-size: 1.05rem;">
@@ -158,8 +162,9 @@
       <div class="tab-content" id="tab-markets">
         
         <!-- QUICK PRESETS & CREATE MARKET FORM -->
-        <div class="card mb-4">
+        <div class="card mb-4" id="marketWritePanel">
           <h3 class="mb-3" style="color:var(--cyan-bright);">⚡ 快速開盤 (夜店包廂熱門預設)</h3>
+          <div id="marketWriteNotice" class="plain-guide" style="display:none; color:var(--red-bright);"></div>
           
           <div class="preset-grid mb-3" id="presetGrid"><div class="text-dim">載入預設盤口中...</div></div>
           <div class="card mb-3" style="background:rgba(0,0,0,.18); border-color:rgba(0,240,255,.35);">
@@ -267,7 +272,7 @@
       <section class="card mb-4" style="border-color: var(--cyan);">
         <h3 style="color:var(--cyan-bright); margin-bottom:10px;">📘 莊家操作手冊</h3>
         <ol class="text-dim" style="margin:0; padding-left:22px; line-height:1.8; font-size:0.88rem;">
-          <li>建立包廂後，從「快速開盤」選模板，確認選項、固定賠率、抽水與最高下注額。</li>
+          <li>建立包廂後，從「快速開盤」選模板，確認選項、固定賠率與抽水。</li>
           <li>將玩家網址與包廂代碼提供給玩家；只有資料庫成功寫入的下注才算成立。</li>
           <li>停止下注時按「封盤」；確認結果後再按「結算」，結算後不可撤回。</li>
           <li>發生中止或結果不明時不要硬結算，保留紀錄並依爭議流程處理。</li>
@@ -385,7 +390,11 @@
       auth = firebase.auth();
       db.ref('.info/serverTimeOffset').on('value', snap => {
         serverTimeOffset = Number(snap.val()) || 0;
-        updateSessionTimeUI();
+        refreshTimeSensitiveAdminUI();
+      });
+      window.addEventListener('focus', refreshTimeSensitiveAdminUI);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refreshTimeSensitiveAdminUI();
       });
       try {
         const credential = await auth.signInAnonymously();
@@ -448,30 +457,54 @@
       setupListeners();
       renderCreateForm();
       if (sessionClockTimer) clearInterval(sessionClockTimer);
-      sessionClockTimer = setInterval(() => {
-        updateSessionTimeUI();
-        if (state) renderMarkets();
-      }, 30000);
+      sessionClockTimer = setInterval(refreshTimeSensitiveAdminUI, 30000);
+    }
+
+    function refreshTimeSensitiveAdminUI() {
+      if (!state) return;
+      updateSessionTimeUI();
+      updateMarketWriteUI();
+      renderMarkets();
     }
 
     function updateSessionTimeUI() {
       const el = document.getElementById('sessionTimeDisplay');
       if (!el || !state) return;
-      if (!state.expiresAt) {
-        el.textContent = '舊版房間（無期限）';
+      if (state.status === 'archived') {
+        el.textContent = '已封存・僅供查閱';
+        el.style.color = 'var(--red-bright)';
         return;
       }
-      const remaining = state.expiresAt - serverNow();
-      if (remaining <= 0) {
+      const time = sessionTimeParts(state, serverNow());
+      if (time.legacy) {
+        el.textContent = '舊版房間（無期限）';
+        el.style.color = 'var(--cyan-bright)';
+        return;
+      }
+      if (time.expired) {
         el.textContent = '已到期・僅可封盤／結算／封存';
         el.style.color = 'var(--red-bright)';
         return;
       }
-      const totalMinutes = Math.ceil(remaining / 60000);
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      el.textContent = `剩餘 ${hours} 小時 ${minutes} 分`;
+      el.textContent = `剩餘 ${time.hours} 小時 ${time.minutes} 分`;
       el.style.color = 'var(--cyan-bright)';
+    }
+
+    function updateMarketWriteUI() {
+      const panel = document.getElementById('marketWritePanel');
+      const notice = document.getElementById('marketWriteNotice');
+      if (!panel || !notice || !state) return;
+      const archived = state.status === 'archived';
+      const expired = isSessionExpired(state, serverNow());
+      const readOnly = archived || expired;
+      panel.classList.toggle('is-readonly', readOnly);
+      notice.style.display = readOnly ? 'block' : 'none';
+      notice.textContent = archived
+        ? '此包廂已封存，只能查閱盤口、注單與結算紀錄。'
+        : '6 小時場次已到期，不能再開盤或發布戰況；仍可完成封盤、結算、帳單與封存。';
+      panel.querySelectorAll('input, select, button').forEach(control => {
+        control.disabled = readOnly;
+      });
     }
 
     document.getElementById('rakeRange').addEventListener('input', e => {
@@ -482,7 +515,6 @@
       const rTitle = document.getElementById('roomTitle').value.trim() || 'VIP 尊榮投注包廂';
       const hName = document.getElementById('hostName').value.trim();
       const rake = parseInt(document.getElementById('rakeRange').value);
-      const mBet = parseInt(document.getElementById('maxBet').value);
       
       if(!hName) {
         SoundEngine.playError();
@@ -501,7 +533,6 @@
         rake: rake,
         rakePercent: rake / 100,
         autoPrice: false,
-        maxBet: mBet,
         pin: pin,
         status: 'active',
         accessMode: 'demo',
@@ -560,6 +591,7 @@
         document.getElementById('infoRake').textContent = (state.rakePercent * 100).toFixed(0);
         hostProfile.hostName = state.hostName || hostProfile.hostName;
         updateSessionTimeUI();
+        updateMarketWriteUI();
         
         renderMarkets();
         renderSituationFeedAdmin();
