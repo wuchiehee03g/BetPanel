@@ -7,13 +7,21 @@
 - [x] 加入共用六小時倒數、回到頁面即刷新及到期／封存唯讀提示
 - [x] 加入玩家 30 秒說明、莊家四步驟說明與清楚的下注失敗原因
 - [x] 更新 README、正式／範例 Rules、核心及 Emulator 回歸測試
-- [ ] 完成語法、JSON、核心、Rules、正式頁面流程驗證後部署與推送
+- [x] 完成語法、JSON、核心、Rules、正式頁面流程驗證後部署與推送
 
 ### 原則
 
 - 保留 BetPanel 原版固定賠率、下注時鎖定倍率、莊家抽水與完整結算帳單。
 - 不移植 PartyScorePanel 的正負分數模式、品牌、Firebase 設定或金流／復原資料。
 - 舊資料中的 `maxBet` 不刪除，只停止讀取與套用，避免改寫既有房間。
+
+### Review
+
+- `npm.cmd run check`：12 組核心／靜態測試通過，`app.js` 與兩頁 inline script 語法均正確，正式與範例 Rules JSON 完全一致。
+- `npm.cmd run test:rules`：7 組 Realtime Database Rules Emulator 測試通過；250,000 Pts 新下注允許，小數與超出 JavaScript 安全整數的值拒絕。
+- Firebase Rules 已部署至 `betpanel-249dc`；未修改 `partyscorepanel-249dc`。
+- GitHub Pages 正式測試房 `ZZB7ND` 已完成建立房間、固定賠率 x2.00 開盤、250,000 Pts 下注、公開帳本同步與封盤；舊 10,000 Pts 上限已不再生效。
+- BetPanel 仍保留固定賠率、5% 預設抽水（可調 0–15%）、本金不抽水與不可逆結算語意。
 
 ## 原版固定賠率復原與重新上線
 
