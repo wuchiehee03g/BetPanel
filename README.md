@@ -76,7 +76,7 @@ npm run test:rules
 ## 部署
 
 - GitHub Pages 玩家頁：<https://wuchiehee03g.github.io/BetPanel/index.html>
-- GitHub Pages 主辦方頁：<https://wuchiehee03g.github.io/BetPanel/banker.html>
+- GitHub Pages 莊家頁：<https://wuchiehee03g.github.io/BetPanel/banker.html>
 - GitHub Pages 由 `main` branch 自動部署。
 - Firebase Rules 只有在確認需求及測試通過後才執行：
 
@@ -84,4 +84,4 @@ npm run test:rules
 firebase.cmd deploy --only database --project betpanel-249dc
 ```
 
-本次改版不會自動部署 Rules、提交 Git 或推送 GitHub。
+`BetPanel` 固定使用 Firebase Project `betpanel-249dc`；`PartyScorePanel` 已移至獨立專案，兩者不共用 Rules、匿名 UID 或新房資料。

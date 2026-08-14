@@ -1,5 +1,21 @@
 # BetPanel 修復計畫
 
+## 原版固定賠率復原與重新上線
+
+- [x] 保留複製來的 PartyScorePanel 狀態為本機 `partyscorepanel-copy` 分支
+- [x] 將 `main` 還原至 `2f18d29` 固定賠率／莊家抽水 checkpoint
+- [x] 完成 JavaScript、inline script、JSON、核心與 Rules Emulator 測試
+- [x] 恢復 `betpanel-249dc` 固定賠率 Rules，未刪除既有資料
+- [x] 推送 `wuchiehee03g/BetPanel` 並啟用 GitHub Pages
+- [x] 正式頁建立測試房並完成 x2.00 固定賠率下注
+
+### Review
+
+- `npm run check`：9 項核心／靜態測試與兩頁 inline script 全數通過。
+- `npm run test:rules`：7 組 Realtime Database Rules Emulator 測試全數通過。
+- 正式測試房 `CDX824` 已接受 100 Pts、x2.00 的玩家下注，公開帳本與鎖定賠率即時同步，兩頁連線正常且無 console error。
+- 原版 checkpoint 仍為 `2f18d29541328f05b3f02bfef0de960d66077903`；後續文件提交不改變前端運算與資料結構。
+
 - [x] 統一派彩預覽與實際結算計算
 - [x] 修正玩家身份分組與房間代碼驗證
 - [x] 修正房間／盤口封存與結算終態
